@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">Где лежит</string>
+    <string name="btn_speak">Сказать</string>
+    <string name="btn_stop">Стоп</string>
+    <string name="status_loading_model">Загрузка модели…</string>
+    <string name="status_ready">Готово. Нажмите «Сказать» и говорите.</string>
+    <string name="status_listening">Слушаю…</string>
+    <string name="status_model_error">Ошибка загрузки модели: %1$s</string>
+    <string name="status_error">Ошибка: %1$s</string>
+    <string name="status_permission_denied">Нет доступа к микрофону. Разрешите доступ в настройках.</string>
+</resources>

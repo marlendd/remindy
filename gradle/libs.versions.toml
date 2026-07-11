@@ -1,0 +1,11 @@
+[versions]
+agp = "9.2.1"
+appcompat = "1.7.1"
+vosk = "0.3.75"
+jna = "5.18.1"
+
+[libraries]
+androidx-appcompat = { module = "androidx.appcompat:appcompat", version.ref = "appcompat" }
+
+[plugins]
+android-application = { id = "com.android.application", version.ref = "agp" }
