@@ -10,26 +10,26 @@ class UtteranceParserTest {
     @Test fun splitsAtFirstPreposition() {
         val r = parse("ПТС в верхнем ящике комода в спальне")
         assertEquals("ПТС", r.item)
-        assertEquals("верхнем ящике комода в спальне", r.location)
+        assertEquals("в верхнем ящике комода в спальне", r.location)
     }
 
     @Test fun prepositionInsideWordIsNotASeparator() {
         // «за» внутри «зарядка» не должно делить; делим по целому слову «на»
         val r = parse("зарядка на столе")
         assertEquals("зарядка", r.item)
-        assertEquals("столе", r.location)
+        assertEquals("на столе", r.location)
     }
 
     @Test fun multiWordItem() {
         val r = parse("запасные ключи под ковриком")
         assertEquals("запасные ключи", r.item)
-        assertEquals("ковриком", r.location)
+        assertEquals("под ковриком", r.location)
     }
 
     @Test fun prepositionZa() {
         val r = parse("паспорт за книгами")
         assertEquals("паспорт", r.item)
-        assertEquals("книгами", r.location)
+        assertEquals("за книгами", r.location)
     }
 
     @Test fun noPrepositionPutsAllIntoItem() {
@@ -48,28 +48,29 @@ class UtteranceParserTest {
     @Test fun voicedPrepositionVo() {
         val r = parse("деньги во втором ящике")
         assertEquals("деньги", r.item)
-        assertEquals("втором ящике", r.location)
+        assertEquals("во втором ящике", r.location)
     }
 
     @Test fun voicedPrepositionPodo() {
         val r = parse("санки подо льдом")
         assertEquals("санки", r.item)
-        assertEquals("льдом", r.location)
+        assertEquals("подо льдом", r.location)
     }
 
     @Test fun caseInsensitivePreposition() {
         val r = parse("Документы На Полке")
         assertEquals("Документы", r.item)
-        assertEquals("Полке", r.location)
+        assertEquals("На Полке", r.location)
     }
 
     @Test fun collapsesExtraWhitespace() {
         val r = parse("  таблетки   в    тумбочке ")
         assertEquals("таблетки", r.item)
-        assertEquals("тумбочке", r.location)
+        assertEquals("в тумбочке", r.location)
     }
 
     @Test fun trailingPrepositionGivesEmptyLocation() {
+        // предлог без слов после него местом не считается
         val r = parse("очки в")
         assertEquals("очки", r.item)
         assertEquals("", r.location)
