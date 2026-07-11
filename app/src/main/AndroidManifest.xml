@@ -24,6 +24,18 @@
             </intent-filter>
         </activity>
 
+        <activity
+            android:name=".record.ConfirmationActivity"
+            android:exported="false"
+            android:screenOrientation="portrait"
+            android:configChanges="orientation|screenSize|smallestScreenSize|keyboardHidden|uiMode|navigation|fontScale"
+            android:windowSoftInputMode="adjustResize" />
+
+        <activity
+            android:name=".list.ListActivity"
+            android:exported="false"
+            android:screenOrientation="portrait" />
+
     </application>
 
 </manifest>

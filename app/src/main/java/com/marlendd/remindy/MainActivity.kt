@@ -1,18 +1,21 @@
 package com.marlendd.remindy
 
 import android.Manifest
+import android.content.Intent
 import android.content.pm.PackageManager
 import android.os.Bundle
 import android.util.TypedValue
 import android.view.View
 import android.widget.Button
-import android.widget.ScrollView
 import android.widget.TextView
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.content.ContextCompat
 import androidx.core.view.ViewCompat
 import androidx.core.view.WindowInsetsCompat
+import com.marlendd.remindy.list.ListActivity
+import com.marlendd.remindy.parse.UtteranceParser
+import com.marlendd.remindy.record.ConfirmationActivity
 import org.json.JSONObject
 import org.vosk.LibVosk
 import org.vosk.LogLevel
@@ -26,18 +29,23 @@ import java.io.IOException
 // Vosk работает только с 16 кГц моно
 private const val SAMPLE_RATE = 16000.0f
 
+/**
+ * Главный экран. «Сказать» пишет ОДНУ фразу: пользователь говорит, по паузе Vosk
+ * выдаёт финальный результат (onResult) – фраза разбирается на предмет/место и
+ * открывается экран подтверждения. Тап «Стоп» финализирует вручную.
+ */
 class MainActivity : AppCompatActivity(), RecognitionListener {
 
     private var model: Model? = null
     private var speechService: SpeechService? = null
     private var recognizer: Recognizer? = null
+    private var capturing = false
 
     private lateinit var rootLayout: View
     private lateinit var statusText: TextView
-    private lateinit var resultText: TextView
     private lateinit var partialText: TextView
-    private lateinit var resultScroll: ScrollView
     private lateinit var toggleButton: Button
+    private lateinit var listButton: Button
 
     private val micPermission =
         registerForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
@@ -50,14 +58,17 @@ class MainActivity : AppCompatActivity(), RecognitionListener {
 
         rootLayout = findViewById(R.id.rootLayout)
         statusText = findViewById(R.id.statusText)
-        resultText = findViewById(R.id.resultText)
         partialText = findViewById(R.id.partialText)
-        resultScroll = findViewById(R.id.resultScroll)
         toggleButton = findViewById(R.id.toggleButton)
+        listButton = findViewById(R.id.listButton)
 
         applyWindowInsets()
 
+        toggleButton.isEnabled = false
         toggleButton.setOnClickListener { toggleRecognition() }
+        listButton.setOnClickListener {
+            startActivity(Intent(this, ListActivity::class.java))
+        }
 
         LibVosk.setLogLevel(LogLevel.INFO)
         if (!hasMicPermission()) {
@@ -66,16 +77,22 @@ class MainActivity : AppCompatActivity(), RecognitionListener {
         initModel()
     }
 
-    // targetSdk 36 на Android 15+ форсит edge-to-edge; отступаем от системных баров,
-    // чтобы навбар не перекрывал большую кнопку. Верх отдаём ActionBar'у AppCompat.
-    private fun applyWindowInsets() {
-        val base = TypedValue.applyDimension(
-            TypedValue.COMPLEX_UNIT_DIP, 16f, resources.displayMetrics
-        ).toInt()
-        ViewCompat.setOnApplyWindowInsetsListener(rootLayout) { view, insets ->
-            val bars = insets.getInsets(WindowInsetsCompat.Type.systemBars())
-            view.setPadding(base + bars.left, base, base + bars.right, base + bars.bottom)
-            insets
+    override fun onResume() {
+        super.onResume()
+        // Вернулись с экрана подтверждения/списка – привести к состоянию покоя
+        if (!capturing && model != null) {
+            resetIdleUi()
+        }
+    }
+
+    override fun onStop() {
+        super.onStop()
+        // Ушли с экрана во время записи – глушим микрофон (иначе он писал бы в фоне,
+        // а поздний колбэк дёрнул бы startActivity из stopped-состояния)
+        if (capturing) {
+            capturing = false
+            releaseSpeechService()
+            resetIdleUi()
         }
     }
 
@@ -86,8 +103,6 @@ class MainActivity : AppCompatActivity(), RecognitionListener {
     private fun initModel() {
         statusText.setText(R.string.status_loading_model)
         toggleButton.isEnabled = false
-        // Распаковывает assets/model-ru-small в files-каталог приложения (асинхронно,
-        // колбэки в main thread); при совпадении uuid повторно не копирует
         StorageService.unpack(
             this, "model-ru-small", "model",
             { loadedModel ->
@@ -96,8 +111,7 @@ class MainActivity : AppCompatActivity(), RecognitionListener {
                 statusText.setText(R.string.status_ready)
             },
             { exception ->
-                // Оставляем кнопку активной: тап повторит загрузку (см. toggleRecognition)
-                toggleButton.isEnabled = true
+                toggleButton.isEnabled = true // тап повторит загрузку
                 statusText.text = getString(R.string.status_model_error, exception.message)
             },
         )
@@ -105,11 +119,11 @@ class MainActivity : AppCompatActivity(), RecognitionListener {
 
     private fun toggleRecognition() {
         if (model == null) {
-            initModel() // повторная попытка загрузки модели после ошибки
+            initModel()
             return
         }
-        if (speechService != null) {
-            stopRecognition()
+        if (capturing) {
+            speechService?.stop() // финальный результат придёт в onFinalResult
         } else {
             startRecognition()
         }
@@ -125,7 +139,10 @@ class MainActivity : AppCompatActivity(), RecognitionListener {
             val rec = Recognizer(loadedModel, SAMPLE_RATE)
             recognizer = rec
             speechService = SpeechService(rec, SAMPLE_RATE).also { it.startListening(this) }
+            capturing = true
+            partialText.text = ""
             toggleButton.setText(R.string.btn_stop)
+            listButton.isEnabled = false // не уходим в список посреди записи
             statusText.setText(R.string.status_listening)
         } catch (e: IOException) {
             releaseSpeechService()
@@ -133,14 +150,22 @@ class MainActivity : AppCompatActivity(), RecognitionListener {
         }
     }
 
-    private fun stopRecognition() {
+    // Завершает захват фразы: освобождает распознаватель, разбирает текст,
+    // открывает экран подтверждения. Guard capturing защищает от двойного вызова.
+    private fun finishCapture(text: String) {
+        if (!capturing) return
+        capturing = false
         releaseSpeechService()
-        resetToggle()
+        resetIdleUi()
+
+        val parsed = UtteranceParser.parse(text)
+        startActivity(
+            Intent(this, ConfirmationActivity::class.java)
+                .putExtra(ConfirmationActivity.EXTRA_ITEM, parsed.item)
+                .putExtra(ConfirmationActivity.EXTRA_LOCATION, parsed.location),
+        )
     }
 
-    // Единый безопасный демонтаж: stop() останавливает поток и выдаёт финальный
-    // результат, shutdown() освобождает AudioRecord, close() – нативный Recognizer
-    // (иначе он течёт: shutdown() его не трогает)
     private fun releaseSpeechService() {
         speechService?.let {
             it.stop()
@@ -151,48 +176,51 @@ class MainActivity : AppCompatActivity(), RecognitionListener {
         recognizer = null
     }
 
-    private fun resetToggle() {
+    private fun resetIdleUi() {
         toggleButton.setText(R.string.btn_speak)
-        if (model != null) {
-            statusText.setText(R.string.status_ready)
-        }
+        listButton.isEnabled = true
+        partialText.text = ""
+        statusText.setText(R.string.status_ready)
     }
 
-    // --- RecognitionListener: колбэки приходят в main thread --------------------
+    // --- RecognitionListener: колбэки в main thread -----------------------------
 
     override fun onPartialResult(hypothesis: String?) {
         partialText.text = hypothesis?.let { JSONObject(it).optString("partial") }.orEmpty()
     }
 
-    // Финальный результат фразы (Vosk определил конец по тишине, слушание продолжается)
+    // Конец фразы по тишине – авто-подтверждение (одно касание на всю запись)
     override fun onResult(hypothesis: String?) {
-        appendFinal(hypothesis)
+        val text = hypothesis?.let { JSONObject(it).optString("text") }.orEmpty()
+        if (text.isNotBlank()) finishCapture(text)
     }
 
-    // Финальный результат после остановки записи
+    // Финал после ручного «Стоп» – подтверждаем даже пустой текст (ручной ввод)
     override fun onFinalResult(hypothesis: String?) {
-        appendFinal(hypothesis)
+        val text = hypothesis?.let { JSONObject(it).optString("text") }.orEmpty()
+        finishCapture(text)
     }
 
     override fun onError(exception: Exception?) {
-        // Полный демонтаж: без stop() перед shutdown() поток распознавателя
-        // продолжил бы читать уже освобождённый AudioRecord и уронил приложение
+        capturing = false
         releaseSpeechService()
-        toggleButton.setText(R.string.btn_speak)
+        resetIdleUi()
         statusText.text = getString(R.string.status_error, exception?.message)
     }
 
     override fun onTimeout() {
-        stopRecognition()
+        finishCapture("")
     }
 
-    private fun appendFinal(hypothesis: String?) {
-        val text = hypothesis?.let { JSONObject(it).optString("text") }.orEmpty()
-        if (text.isNotBlank()) {
-            resultText.append(text + "\n")
-            resultScroll.post { resultScroll.fullScroll(ScrollView.FOCUS_DOWN) }
+    private fun applyWindowInsets() {
+        val base = TypedValue.applyDimension(
+            TypedValue.COMPLEX_UNIT_DIP, 16f, resources.displayMetrics,
+        ).toInt()
+        ViewCompat.setOnApplyWindowInsetsListener(rootLayout) { view, insets ->
+            val bars = insets.getInsets(WindowInsetsCompat.Type.systemBars())
+            view.setPadding(base + bars.left, base, base + bars.right, base + bars.bottom)
+            insets
         }
-        partialText.text = ""
     }
 
     override fun onDestroy() {

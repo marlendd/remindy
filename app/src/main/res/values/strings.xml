@@ -9,4 +9,22 @@
     <string name="status_model_error">Ошибка загрузки модели: %1$s</string>
     <string name="status_error">Ошибка: %1$s</string>
     <string name="status_permission_denied">Нет доступа к микрофону. Разрешите доступ в настройках.</string>
+
+    <!-- Список и подтверждение (этап 2) -->
+    <string name="btn_list">Список</string>
+    <string name="btn_save">Сохранить</string>
+    <string name="btn_rewrite">Переписать</string>
+    <string name="btn_cancel">Отмена</string>
+    <string name="hint_item">Предмет</string>
+    <string name="hint_location">Место</string>
+    <string name="label_item">Что</string>
+    <string name="label_location">Где лежит</string>
+    <string name="title_confirm">Проверьте запись</string>
+    <string name="title_list">Мои записи</string>
+    <string name="list_empty">Пока нет записей. Нажмите «Сказать» и наговорите первую.</string>
+    <string name="toast_saved">Сохранено</string>
+    <string name="toast_deleted">Удалено</string>
+    <string name="toast_item_required">Впишите, что за предмет</string>
+    <string name="toast_save_error">Не удалось сохранить. Попробуйте изменить название.</string>
+    <string name="row_updated">Записано: %1$s</string>
 </resources>

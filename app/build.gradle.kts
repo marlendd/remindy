@@ -4,7 +4,14 @@ import javax.inject.Inject
 
 plugins {
     alias(libs.plugins.android.application)
+    alias(libs.plugins.ksp)
+    alias(libs.plugins.androidx.room)
     // Kotlin встроен в AGP 9 – отдельный Kotlin-плагин подключать нельзя
+}
+
+// Схема БД экспортируется в app/schemas/ (коммитится) для тестируемых миграций
+room {
+    schemaDirectory("$projectDir/schemas")
 }
 
 android {
@@ -29,10 +36,17 @@ android {
 
 dependencies {
     implementation(libs.androidx.appcompat)
+    implementation(libs.androidx.recyclerview)
     // @aar обязателен (так подключает официальный vosk-android-demo); @aar отключает
     // транзитивные зависимости, поэтому JNA объявлен явно
     implementation("com.alphacephei:vosk-android:${libs.versions.vosk.get()}@aar")
     implementation("net.java.dev.jna:jna:${libs.versions.jna.get()}@aar")
+
+    implementation(libs.androidx.room.runtime)
+    ksp(libs.androidx.room.compiler)
+    implementation(libs.kotlinx.coroutines.android)
+
+    testImplementation(libs.junit)
 }
 
 // --- Модель Vosk: скачивание при сборке, в git не попадает -------------------
