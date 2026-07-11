@@ -13,9 +13,13 @@ import androidx.appcompat.app.AppCompatActivity
 import androidx.core.content.ContextCompat
 import androidx.core.view.ViewCompat
 import androidx.core.view.WindowInsetsCompat
+import androidx.lifecycle.lifecycleScope
 import com.marlendd.remindy.list.ListActivity
 import com.marlendd.remindy.parse.UtteranceParser
 import com.marlendd.remindy.record.ConfirmationActivity
+import com.marlendd.remindy.search.SearchActivity
+import com.marlendd.remindy.voice.VoskModelHolder
+import kotlinx.coroutines.launch
 import org.json.JSONObject
 import org.vosk.LibVosk
 import org.vosk.LogLevel
@@ -23,7 +27,6 @@ import org.vosk.Model
 import org.vosk.Recognizer
 import org.vosk.android.RecognitionListener
 import org.vosk.android.SpeechService
-import org.vosk.android.StorageService
 import java.io.IOException
 
 // Vosk работает только с 16 кГц моно
@@ -45,6 +48,7 @@ class MainActivity : AppCompatActivity(), RecognitionListener {
     private lateinit var statusText: TextView
     private lateinit var partialText: TextView
     private lateinit var toggleButton: Button
+    private lateinit var findButton: Button
     private lateinit var listButton: Button
 
     private val micPermission =
@@ -60,12 +64,16 @@ class MainActivity : AppCompatActivity(), RecognitionListener {
         statusText = findViewById(R.id.statusText)
         partialText = findViewById(R.id.partialText)
         toggleButton = findViewById(R.id.toggleButton)
+        findButton = findViewById(R.id.findButton)
         listButton = findViewById(R.id.listButton)
 
         applyWindowInsets()
 
         toggleButton.isEnabled = false
         toggleButton.setOnClickListener { toggleRecognition() }
+        findButton.setOnClickListener {
+            startActivity(Intent(this, SearchActivity::class.java))
+        }
         listButton.setOnClickListener {
             startActivity(Intent(this, ListActivity::class.java))
         }
@@ -103,18 +111,16 @@ class MainActivity : AppCompatActivity(), RecognitionListener {
     private fun initModel() {
         statusText.setText(R.string.status_loading_model)
         toggleButton.isEnabled = false
-        StorageService.unpack(
-            this, "model-ru-small", "model",
-            { loadedModel ->
-                model = loadedModel
+        lifecycleScope.launch {
+            try {
+                model = VoskModelHolder.get(this@MainActivity) // общая на процесс модель
                 toggleButton.isEnabled = true
                 statusText.setText(R.string.status_ready)
-            },
-            { exception ->
+            } catch (e: Exception) {
                 toggleButton.isEnabled = true // тап повторит загрузку
-                statusText.text = getString(R.string.status_model_error, exception.message)
-            },
-        )
+                statusText.text = getString(R.string.status_model_error, e.message)
+            }
+        }
     }
 
     private fun toggleRecognition() {
@@ -226,7 +232,6 @@ class MainActivity : AppCompatActivity(), RecognitionListener {
     override fun onDestroy() {
         super.onDestroy()
         releaseSpeechService()
-        model?.close()
-        model = null
+        model = null // модель общая (VoskModelHolder), здесь не закрываем
     }
 }

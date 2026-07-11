@@ -11,6 +11,7 @@
     <string name="status_permission_denied">Нет доступа к микрофону. Разрешите доступ в настройках.</string>
 
     <!-- Список и подтверждение (этап 2) -->
+    <string name="btn_find">Найти</string>
     <string name="btn_list">Список</string>
     <string name="btn_save">Сохранить</string>
     <string name="btn_rewrite">Переписать</string>
@@ -26,5 +27,16 @@
     <string name="toast_deleted">Удалено</string>
     <string name="toast_item_required">Впишите, что за предмет</string>
     <string name="toast_save_error">Не удалось сохранить. Попробуйте изменить название.</string>
+
+    <!-- Поиск (этап 3) -->
+    <string name="title_search">Поиск</string>
+    <string name="search_hint">Скажите или впишите, что ищете</string>
+    <string name="search_prompt">Нажмите «Найти» и скажите, или впишите запрос.</string>
+    <string name="search_listening">Слушаю…</string>
+    <string name="search_found">Нашёл: %1$d</string>
+    <string name="search_none">Ничего не нашёл. Выберите нужное из списка – я запомню.</string>
+    <string name="search_empty">Пока нет записей. Сначала наговорите их на главном экране.</string>
+    <string name="search_query_empty">Скажите или впишите запрос.</string>
+    <string name="toast_learned">Запомнил</string>
     <string name="row_updated">Записано: %1$s</string>
 </resources>

@@ -13,10 +13,28 @@ class RecordRepository(private val db: RemindyDatabase) {
 
     private val itemDao = db.itemDao()
     private val historyDao = db.locationHistoryDao()
+    private val synonymDao = db.synonymDao()
 
     fun observeAll(): Flow<List<Item>> = itemDao.observeAll()
 
     suspend fun findById(id: Long): Item? = itemDao.findById(id)
+
+    /** Все предметы разово (для поиска). */
+    suspend fun allItems(): List<Item> = itemDao.getAll()
+
+    /** Алиасы (синонимы) по id предмета – для поиска. */
+    suspend fun aliasesByItem(): Map<Long, List<String>> =
+        synonymDao.getAll().groupBy({ it.itemId }, { it.aliasNorm })
+
+    /**
+     * Самообучение синонимов (ТЗ F2): когда поиск ничего не нашёл и пользователь
+     * выбрал запись из полного списка руками, запоминаем его запрос как алиас.
+     */
+    suspend fun learnSynonym(query: String, itemId: Long) {
+        val aliasNorm = TextNormalizer.normalize(query)
+        if (aliasNorm.isBlank()) return
+        synonymDao.upsert(Synonym(aliasNorm = aliasNorm, itemId = itemId))
+    }
 
     /**
      * Сохраняет предмет с местом. Если предмет с таким же нормализованным именем

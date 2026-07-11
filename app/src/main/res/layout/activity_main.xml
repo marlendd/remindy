@@ -30,12 +30,21 @@
         android:textSize="26sp" />
 
     <Button
+        android:id="@+id/findButton"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="12dp"
+        android:minHeight="72dp"
+        android:text="@string/btn_find"
+        android:textSize="24sp" />
+
+    <Button
         android:id="@+id/listButton"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:layout_marginTop="12dp"
-        android:minHeight="60dp"
+        android:minHeight="56dp"
         android:text="@string/btn_list"
-        android:textSize="22sp" />
+        android:textSize="20sp" />
 
 </LinearLayout>
