@@ -8,7 +8,6 @@
     <string name="status_listening">Слушаю…</string>
     <string name="status_model_error">Ошибка загрузки модели: %1$s</string>
     <string name="status_error">Ошибка: %1$s</string>
-    <string name="status_permission_denied">Нет доступа к микрофону. Разрешите доступ в настройках.</string>
 
     <!-- Список и подтверждение (этап 2) -->
     <string name="btn_find">Найти</string>
@@ -41,7 +40,6 @@
     <string name="row_updated">Записано: %1$s</string>
 
     <!-- Замок чтения (этап 5) -->
-    <string name="title_unlock">Вход</string>
     <string name="unlock_create">Придумайте код приложения (4–8 цифр)</string>
     <string name="unlock_repeat">Повторите код</string>
     <string name="unlock_enter">Введите код приложения</string>
@@ -56,4 +54,30 @@
     <string name="btn_backspace">⌫</string>
     <string name="btn_biometric">Отпечаток</string>
     <string name="db_error">Не удалось открыть данные</string>
+
+    <!-- Фаза 4: UX-улучшения -->
+    <!-- Индикатор открытия зашифрованной БД -->
+    <string name="status_opening_db">Открываю данные…</string>
+    <!-- Разрешение микрофона -->
+    <string name="mic_rationale_title">Нужен доступ к микрофону</string>
+    <string name="mic_rationale">Чтобы записывать голосом, разрешите доступ к микрофону.</string>
+    <string name="mic_denied_title">Микрофон отключён</string>
+    <string name="mic_denied_settings">Доступ к микрофону запрещён. Включите его в настройках приложения.</string>
+    <string name="btn_allow">Разрешить</string>
+    <string name="btn_open_settings">Открыть настройки</string>
+    <!-- Список: undo при удалении -->
+    <string name="snackbar_undo">Отмена</string>
+    <!-- Правка записи -->
+    <string name="title_edit">Изменить запись</string>
+    <string name="btn_delete">Удалить</string>
+    <string name="confirm_delete_title">Удалить запись?</string>
+    <string name="confirm_delete_message">«%1$s» будет удалено без возможности отмены.</string>
+    <!-- Экран настроек (ТЗ F4) -->
+    <string name="btn_settings">Настройки</string>
+    <string name="title_settings">Настройки</string>
+    <string name="settings_lock">Спрашивать код при открытии списка и поиска</string>
+    <string name="settings_lock_summary">Защищает записи, если телефон возьмёт кто-то другой</string>
+    <string name="settings_biometric">Вход по отпечатку</string>
+    <string name="settings_change_pin">Сменить код</string>
+    <string name="settings_pin_changed">Код изменён</string>
 </resources>

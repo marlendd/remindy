@@ -6,7 +6,9 @@ plugins {
     alias(libs.plugins.android.application)
     alias(libs.plugins.ksp)
     alias(libs.plugins.androidx.room)
-    // Kotlin встроен в AGP 9 – отдельный Kotlin-плагин подключать нельзя
+    // Kotlin встроен в AGP 9 – отдельный Kotlin-плагин подключать нельзя.
+    // Compose-compiler – отдельный subplugin, версия совпадает со встроенным Kotlin.
+    alias(libs.plugins.compose.compiler)
 }
 
 // Схема БД экспортируется в app/schemas/ (коммитится) для тестируемых миграций
@@ -16,7 +18,9 @@ room {
 
 android {
     namespace = "com.marlendd.remindy"
-    compileSdk = 36
+    // Фаза 4: Compose-стек 2026 (lifecycle-runtime-compose 2.11.0) требует compileSdk 37.
+    // targetSdk оставляем 36 – новые runtime-поведения API 37 не включаем.
+    compileSdk = 37
 
     defaultConfig {
         applicationId = "com.marlendd.remindy"
@@ -32,11 +36,16 @@ android {
         sourceCompatibility = JavaVersion.VERSION_17
         targetCompatibility = JavaVersion.VERSION_17
     }
+
+    // Фаза 4: Compose. composeOptions{} НЕ нужен (мёртв с Kotlin 2.0 – компилятор
+    // подключается плагином compose-compiler выше).
+    buildFeatures {
+        compose = true
+    }
 }
 
 dependencies {
     implementation(libs.androidx.appcompat)
-    implementation(libs.androidx.recyclerview)
     // @aar обязателен (так подключает официальный vosk-android-demo); @aar отключает
     // транзитивные зависимости, поэтому JNA объявлен явно
     implementation("com.alphacephei:vosk-android:${libs.versions.vosk.get()}@aar")
@@ -49,6 +58,15 @@ dependencies {
     // Этап 5: SQLCipher (шифрование базы) + BiometricPrompt (замок чтения)
     implementation(libs.sqlcipher.android)
     implementation(libs.androidx.biometric)
+
+    // Фаза 4: Jetpack Compose (Material 3). Версии ui/material3 – из BOM.
+    implementation(platform(libs.compose.bom))
+    implementation(libs.compose.ui)
+    implementation(libs.compose.material3)
+    implementation(libs.compose.ui.tooling.preview)
+    debugImplementation(libs.compose.ui.tooling)
+    implementation(libs.androidx.activity.compose)
+    implementation(libs.androidx.lifecycle.runtime.compose)
 
     testImplementation(libs.junit)
 }

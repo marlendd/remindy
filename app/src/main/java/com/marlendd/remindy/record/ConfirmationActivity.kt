@@ -1,64 +1,82 @@
 package com.marlendd.remindy.record
 
 import android.os.Bundle
-import android.util.TypedValue
-import android.view.View
-import android.widget.Button
-import android.widget.EditText
 import android.widget.Toast
+import androidx.activity.compose.setContent
+import androidx.activity.enableEdgeToEdge
 import androidx.appcompat.app.AppCompatActivity
-import androidx.core.view.ViewCompat
-import androidx.core.view.WindowInsetsCompat
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.safeDrawing
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.windowInsetsPadding
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.foundation.verticalScroll
+import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.Button
+import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.OutlinedButton
+import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.TextStyle
+import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.lifecycle.lifecycleScope
 import com.marlendd.remindy.R
 import com.marlendd.remindy.data.RecordRepository
 import com.marlendd.remindy.data.RemindyDatabase
 import com.marlendd.remindy.security.protectFromRecents
+import com.marlendd.remindy.ui.theme.RemindyTheme
 import kotlinx.coroutines.launch
 
 /**
- * Экран подтверждения записи. Два режима:
+ * Экран подтверждения записи (Фаза 4: Compose). Два режима:
  *  - новая запись из голоса: поля предзаполнены разбором, кнопка «Переписать»;
- *  - редактирование из списка (передан EXTRA_ITEM_ID): кнопка «Отмена», Save обновляет.
- * Ручной ввод доступен всегда (поля редактируемы, даже если распознавание пустое).
- *
- * Запись/правку не гейтим (этап 5): «одно касание» цело. База поднимается на IO-потоке,
- * «Сохранить» доступна по её готовности.
+ *  - редактирование из списка (передан EXTRA_ITEM_ID): заголовок «Изменить запись»,
+ *    кнопка «Отмена» + «Удалить» (с подтверждением), Save обновляет.
+ * Ручной ввод доступен всегда. Запись/правку не гейтим (этап 5): «одно касание» цело.
+ * База поднимается на IO-потоке, «Сохранить» доступна по её готовности.
  */
 class ConfirmationActivity : AppCompatActivity() {
 
     private var repository: RecordRepository? = null
-    private lateinit var itemEdit: EditText
-    private lateinit var locationEdit: EditText
-
     private var editingId: Long = NO_ID
+
+    private var itemText by mutableStateOf("")
+    private var locationText by mutableStateOf("")
+    private var saveEnabled by mutableStateOf(false)
+    private var dbLoading by mutableStateOf(true)
+    private var showDeleteConfirm by mutableStateOf(false)
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         protectFromRecents() // при правке из списка тут видно место вещи – прячем из «недавних»
-        setContentView(R.layout.activity_confirm)
-        title = getString(R.string.title_confirm)
-
-        itemEdit = findViewById(R.id.itemEdit)
-        locationEdit = findViewById(R.id.locationEdit)
-        val saveButton: Button = findViewById(R.id.saveButton)
-        val rewriteButton: Button = findViewById(R.id.rewriteButton)
-
-        applyWindowInsets(findViewById(R.id.rootConfirm))
+        enableEdgeToEdge()
 
         editingId = intent.getLongExtra(EXTRA_ITEM_ID, NO_ID)
-        if (editingId != NO_ID) {
-            rewriteButton.setText(R.string.btn_cancel)
-        } else {
-            itemEdit.setText(intent.getStringExtra(EXTRA_ITEM).orEmpty())
-            locationEdit.setText(intent.getStringExtra(EXTRA_LOCATION).orEmpty())
+        if (editingId == NO_ID) {
+            itemText = intent.getStringExtra(EXTRA_ITEM).orEmpty()
+            locationText = intent.getStringExtra(EXTRA_LOCATION).orEmpty()
         }
 
-        saveButton.setOnClickListener { save() }
-        rewriteButton.setOnClickListener { finish() }
+        setContent { RemindyTheme { ConfirmScreen() } }
 
         // База открывается на IO (Keystore + SQLCipher); до готовности «Сохранить» неактивна
-        saveButton.isEnabled = false
         lifecycleScope.launch {
             val repo = try {
                 RecordRepository(RemindyDatabase.getAsync(this@ConfirmationActivity))
@@ -68,7 +86,8 @@ class ConfirmationActivity : AppCompatActivity() {
                 return@launch
             }
             repository = repo
-            saveButton.isEnabled = true
+            dbLoading = false
+            saveEnabled = true
             if (editingId != NO_ID) loadForEditing(repo, editingId)
         }
     }
@@ -76,14 +95,115 @@ class ConfirmationActivity : AppCompatActivity() {
     private suspend fun loadForEditing(repo: RecordRepository, id: Long) {
         val existing = repo.findById(id) ?: return
         // Не затираем то, что пользователь успел набрать, пока шёл запрос
-        if (itemEdit.text.isNullOrEmpty()) itemEdit.setText(existing.name)
-        if (locationEdit.text.isNullOrEmpty()) locationEdit.setText(existing.location)
+        if (itemText.isEmpty()) itemText = existing.name
+        if (locationText.isEmpty()) locationText = existing.location
     }
+
+    // --- UI -------------------------------------------------------------------
+
+    @Composable
+    private fun ConfirmScreen() {
+        val editing = editingId != NO_ID
+        Column(
+            Modifier
+                .fillMaxSize()
+                .windowInsetsPadding(WindowInsets.safeDrawing)
+                .verticalScroll(rememberScrollState())
+                .padding(16.dp),
+        ) {
+            Text(
+                stringResource(if (editing) R.string.title_edit else R.string.title_confirm),
+                fontSize = 24.sp,
+                modifier = Modifier.padding(bottom = 16.dp),
+            )
+
+            Text(stringResource(R.string.label_item), fontSize = 18.sp)
+            OutlinedTextField(
+                value = itemText,
+                onValueChange = { itemText = it },
+                singleLine = true,
+                placeholder = { Text(stringResource(R.string.hint_item)) },
+                keyboardOptions = KeyboardOptions(autoCorrectEnabled = false),
+                textStyle = TextStyle(fontSize = 24.sp),
+                modifier = Modifier.fillMaxWidth(),
+            )
+
+            Spacer(Modifier.size(16.dp))
+            Text(stringResource(R.string.label_location), fontSize = 18.sp)
+            OutlinedTextField(
+                value = locationText,
+                onValueChange = { locationText = it },
+                placeholder = { Text(stringResource(R.string.hint_location)) },
+                keyboardOptions = KeyboardOptions(autoCorrectEnabled = false),
+                textStyle = TextStyle(fontSize = 24.sp),
+                modifier = Modifier.fillMaxWidth(),
+            )
+
+            Spacer(Modifier.size(24.dp))
+            if (dbLoading) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    CircularProgressIndicator(Modifier.size(20.dp), strokeWidth = 2.dp)
+                    Text(
+                        stringResource(R.string.status_opening_db),
+                        fontSize = 14.sp,
+                        modifier = Modifier.padding(start = 8.dp),
+                    )
+                }
+                Spacer(Modifier.size(12.dp))
+            }
+
+            Button(
+                onClick = { save() },
+                enabled = saveEnabled,
+                modifier = Modifier.fillMaxWidth().heightIn(min = 72.dp),
+            ) {
+                Text(stringResource(R.string.btn_save), fontSize = 24.sp)
+            }
+            Spacer(Modifier.size(12.dp))
+            OutlinedButton(
+                onClick = { finish() },
+                modifier = Modifier.fillMaxWidth().heightIn(min = 56.dp),
+            ) {
+                Text(stringResource(if (editing) R.string.btn_cancel else R.string.btn_rewrite), fontSize = 20.sp)
+            }
+            if (editing) {
+                Spacer(Modifier.size(12.dp))
+                TextButton(
+                    onClick = { showDeleteConfirm = true },
+                    enabled = saveEnabled,
+                    modifier = Modifier.fillMaxWidth().heightIn(min = 56.dp),
+                ) {
+                    Text(stringResource(R.string.btn_delete), fontSize = 20.sp)
+                }
+            }
+        }
+
+        if (showDeleteConfirm) {
+            AlertDialog(
+                onDismissRequest = { showDeleteConfirm = false },
+                title = { Text(stringResource(R.string.confirm_delete_title)) },
+                text = { Text(stringResource(R.string.confirm_delete_message, itemText)) },
+                confirmButton = {
+                    TextButton(onClick = {
+                        showDeleteConfirm = false
+                        performDelete()
+                    }) { Text(stringResource(R.string.btn_delete)) }
+                },
+                dismissButton = {
+                    TextButton(onClick = { showDeleteConfirm = false }) {
+                        Text(stringResource(R.string.btn_cancel))
+                    }
+                },
+            )
+        }
+    }
+
+    // --- Действия -------------------------------------------------------------
 
     private fun save() {
         val repo = repository ?: return
-        val name = itemEdit.text.toString().trim()
-        val location = locationEdit.text.toString().trim()
+        val name = itemText.trim()
+        val location = locationText.trim()
         if (name.isEmpty()) {
             Toast.makeText(this, R.string.toast_item_required, Toast.LENGTH_SHORT).show()
             return
@@ -109,14 +229,19 @@ class ConfirmationActivity : AppCompatActivity() {
         }
     }
 
-    private fun applyWindowInsets(root: View) {
-        val base = TypedValue.applyDimension(
-            TypedValue.COMPLEX_UNIT_DIP, 16f, resources.displayMetrics,
-        ).toInt()
-        ViewCompat.setOnApplyWindowInsetsListener(root) { view, insets ->
-            val bars = insets.getInsets(WindowInsetsCompat.Type.systemBars() or WindowInsetsCompat.Type.ime())
-            view.setPadding(base + bars.left, base, base + bars.right, base + bars.bottom)
-            insets
+    private fun performDelete() {
+        val repo = repository ?: return
+        val id = editingId
+        if (id == NO_ID) return
+        lifecycleScope.launch {
+            try {
+                val existing = repo.findById(id)
+                if (existing != null) repo.delete(existing)
+                Toast.makeText(this@ConfirmationActivity, R.string.toast_deleted, Toast.LENGTH_SHORT).show()
+                finish()
+            } catch (e: Exception) {
+                Toast.makeText(this@ConfirmationActivity, R.string.db_error, Toast.LENGTH_LONG).show()
+            }
         }
     }
 

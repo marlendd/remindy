@@ -2,97 +2,187 @@ package com.marlendd.remindy.security
 
 import android.os.Bundle
 import android.os.CountDownTimer
-import android.view.View
-import android.widget.Button
-import android.widget.TextView
+import androidx.activity.compose.setContent
+import androidx.activity.enableEdgeToEdge
 import androidx.appcompat.app.AppCompatActivity
 import androidx.biometric.BiometricManager
 import androidx.biometric.BiometricManager.Authenticators.BIOMETRIC_STRONG
 import androidx.biometric.BiometricPrompt
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ColumnScope
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.fillMaxHeight
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.safeDrawing
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.windowInsetsPadding
+import androidx.compose.material3.Button
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedButton
+import androidx.compose.material3.Text
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.lifecycleScope
 import com.marlendd.remindy.R
+import com.marlendd.remindy.ui.theme.RemindyTheme
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
 /**
- * Замок чтения (этап 5). Вход по биометрии ИЛИ отдельному коду приложения (не системному).
- * Успех → [ReadGate.markUnlocked] + RESULT_OK; отказ/назад → RESULT_CANCELED (вызывающий
- * экран закрывается). Первый запуск: режим установки кода. Биометрия – только `BIOMETRIC_STRONG`,
- * БЕЗ device credential, иначе телефонный PIN открывал бы приложение – ровно та дыра, что закрываем.
+ * Замок чтения (этап 5, Фаза 4: Compose). Вход по биометрии ИЛИ отдельному коду приложения
+ * (не системному). Успех → [ReadGate.markUnlocked] + RESULT_OK; отказ/назад → RESULT_CANCELED.
+ * Первый запуск (или [EXTRA_FORCE_SETUP] из настроек) – режим установки/смены кода. Биометрия –
+ * только `BIOMETRIC_STRONG`, БЕЗ device credential, иначе телефонный PIN открывал бы приложение.
  */
 class UnlockActivity : AppCompatActivity() {
 
     private lateinit var appPin: AppPin
-    private lateinit var titleView: TextView
-    private lateinit var pinDisplay: TextView
-    private lateinit var errorView: TextView
-    private lateinit var biometricButton: Button
-    private lateinit var keys: List<Button>
 
     private val entered = StringBuilder()
     private var setupMode = false
+    private var forceSetup = false
     private var setupFirst: String? = null
     private var lockTimer: CountDownTimer? = null
 
+    // UI-состояние
+    private var titleText by mutableStateOf("")
+    private var dotsCount by mutableIntStateOf(0)
+    private var errorText by mutableStateOf("")
+    private var showBiometric by mutableStateOf(false)
+    private var keypadEnabled by mutableStateOf(true)
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        setContentView(R.layout.activity_unlock)
-        title = getString(R.string.title_unlock)
-
+        enableEdgeToEdge()
         appPin = AppPin(this)
-        titleView = findViewById(R.id.titleUnlock)
-        pinDisplay = findViewById(R.id.pinDisplay)
-        errorView = findViewById(R.id.errorUnlock)
-        biometricButton = findViewById(R.id.btnBiometric)
+        forceSetup = intent.getBooleanExtra(EXTRA_FORCE_SETUP, false)
 
-        wireKeypad()
-        biometricButton.setOnClickListener { showBiometricPrompt() }
+        setContent { RemindyTheme { UnlockScreen() } }
 
-        // Уже разблокировано в этой сессии – ничего не спрашиваем
-        if (ReadGate.unlocked) {
+        // Уже разблокировано в этой сессии – ничего не спрашиваем (кроме принудительной
+        // установки/смены кода из настроек, где мы намеренно хотим задать новый код).
+        if (ReadGate.unlocked && !forceSetup) {
             grant()
             return
         }
 
         lifecycleScope.launch {
-            setupMode = !withContext(Dispatchers.IO) { appPin.isSet() }
-            titleView.setText(if (setupMode) R.string.unlock_create else R.string.unlock_enter)
-            if (!setupMode && biometricAvailable()) {
-                biometricButton.visibility = View.VISIBLE
+            setupMode = forceSetup || !withContext(Dispatchers.IO) { appPin.isSet() }
+            titleText = getString(if (setupMode) R.string.unlock_create else R.string.unlock_enter)
+            if (!setupMode && biometricEnabledAndAvailable()) {
+                showBiometric = true
                 showBiometricPrompt()
             }
         }
     }
 
-    private fun wireKeypad() {
-        val digitIds = intArrayOf(
-            R.id.btnKey0, R.id.btnKey1, R.id.btnKey2, R.id.btnKey3, R.id.btnKey4,
-            R.id.btnKey5, R.id.btnKey6, R.id.btnKey7, R.id.btnKey8, R.id.btnKey9,
-        )
-        val digitButtons = digitIds.mapIndexed { digit, id ->
-            findViewById<Button>(id).also { it.setOnClickListener { _ -> onDigit(digit) } }
+    // --- UI -------------------------------------------------------------------
+
+    @Composable
+    private fun UnlockScreen() {
+        Column(
+            Modifier
+                .fillMaxSize()
+                .windowInsetsPadding(WindowInsets.safeDrawing)
+                .padding(16.dp),
+            horizontalAlignment = Alignment.CenterHorizontally,
+        ) {
+            Text(
+                titleText,
+                fontSize = 22.sp,
+                textAlign = TextAlign.Center,
+                modifier = Modifier.fillMaxWidth().padding(top = 16.dp),
+            )
+            Text(
+                "•".repeat(dotsCount),
+                fontSize = 36.sp,
+                fontWeight = FontWeight.Bold,
+                textAlign = TextAlign.Center,
+                modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp).padding(top = 16.dp),
+            )
+            Text(
+                errorText,
+                fontSize = 18.sp,
+                color = MaterialTheme.colorScheme.error,
+                textAlign = TextAlign.Center,
+                modifier = Modifier.fillMaxWidth().heightIn(min = 28.dp),
+            )
+
+            Column(Modifier.weight(1f).fillMaxWidth()) {
+                KeypadRow("1", "2", "3")
+                KeypadRow("4", "5", "6")
+                KeypadRow("7", "8", "9")
+                Row(Modifier.weight(1f).fillMaxWidth()) {
+                    KeypadKey(stringResource(R.string.btn_backspace), Modifier.weight(1f)) { onBackspace() }
+                    KeypadKey("0", Modifier.weight(1f)) { onDigit(0) }
+                    KeypadKey(stringResource(R.string.btn_ok), Modifier.weight(1f)) { onSubmit() }
+                }
+            }
+
+            if (showBiometric) {
+                Spacer(Modifier.size(8.dp))
+                OutlinedButton(
+                    onClick = { showBiometricPrompt() },
+                    modifier = Modifier.fillMaxWidth().heightIn(min = 56.dp),
+                ) {
+                    Text(stringResource(R.string.btn_biometric), fontSize = 20.sp)
+                }
+            }
         }
-        val backspace: Button = findViewById(R.id.btnBackspace)
-        val ok: Button = findViewById(R.id.btnOk)
-        backspace.setOnClickListener { onBackspace() }
-        ok.setOnClickListener { onSubmit() }
-        keys = digitButtons + backspace + ok
     }
+
+    // Extension на ColumnScope, чтобы Modifier.weight(1f) у Row резолвился (равные по высоте ряды)
+    @Composable
+    private fun ColumnScope.KeypadRow(a: String, b: String, c: String) {
+        Row(Modifier.weight(1f).fillMaxWidth()) {
+            KeypadKey(a, Modifier.weight(1f)) { onDigit(a.toInt()) }
+            KeypadKey(b, Modifier.weight(1f)) { onDigit(b.toInt()) }
+            KeypadKey(c, Modifier.weight(1f)) { onDigit(c.toInt()) }
+        }
+    }
+
+    @Composable
+    private fun KeypadKey(label: String, modifier: Modifier, onClick: () -> Unit) {
+        Button(
+            onClick = onClick,
+            enabled = keypadEnabled,
+            modifier = modifier.fillMaxHeight().heightIn(min = 56.dp).padding(4.dp),
+        ) {
+            Text(label, fontSize = 26.sp)
+        }
+    }
+
+    // --- Ввод кода ------------------------------------------------------------
 
     private fun onDigit(digit: Int) {
         clearError()
         if (entered.length >= AppPin.MAX_LEN) return
         entered.append(digit)
-        renderDots()
+        dotsCount = entered.length
     }
 
     private fun onBackspace() {
         clearError()
         if (entered.isNotEmpty()) {
             entered.deleteCharAt(entered.length - 1)
-            renderDots()
+            dotsCount = entered.length
         }
     }
 
@@ -110,17 +200,17 @@ class UnlockActivity : AppCompatActivity() {
         if (first == null) {
             setupFirst = pin
             resetInput()
-            titleView.setText(R.string.unlock_repeat)
+            titleText = getString(R.string.unlock_repeat)
         } else if (pin == first) {
-            setKeypadEnabled(false) // не даём повторный тап во время записи
+            keypadEnabled = false // не даём повторный тап во время записи
             lifecycleScope.launch {
                 try {
                     withContext(Dispatchers.IO) { appPin.setPin(pin.toCharArray()) }
                 } catch (e: Exception) {
-                    setKeypadEnabled(true)
+                    keypadEnabled = true
                     setupFirst = null
                     resetInput()
-                    titleView.setText(R.string.unlock_create)
+                    titleText = getString(R.string.unlock_create)
                     showError(getString(R.string.db_error))
                     return@launch
                 }
@@ -129,18 +219,18 @@ class UnlockActivity : AppCompatActivity() {
         } else {
             setupFirst = null
             resetInput()
-            titleView.setText(R.string.unlock_create)
+            titleText = getString(R.string.unlock_create)
             showError(getString(R.string.unlock_mismatch))
         }
     }
 
     private fun handleEntry(pin: String) {
-        setKeypadEnabled(false) // гасим клавиатуру на время проверки: без гонки двойного тапа
+        keypadEnabled = false // гасим клавиатуру на время проверки: без гонки двойного тапа
         lifecycleScope.launch {
             val res = try {
                 withContext(Dispatchers.IO) { appPin.verify(pin.toCharArray()) }
             } catch (e: Exception) {
-                setKeypadEnabled(true)
+                keypadEnabled = true
                 resetInput()
                 showError(getString(R.string.db_error))
                 return@launch
@@ -148,7 +238,7 @@ class UnlockActivity : AppCompatActivity() {
             when (res) {
                 AppPin.Result.Ok -> grant()
                 is AppPin.Result.Wrong -> {
-                    setKeypadEnabled(true)
+                    keypadEnabled = true
                     resetInput()
                     showError(getString(R.string.unlock_wrong, res.attemptsLeft))
                 }
@@ -160,14 +250,17 @@ class UnlockActivity : AppCompatActivity() {
         }
     }
 
-    // --- Биометрия --------------------------------------------------------------
+    // --- Биометрия ------------------------------------------------------------
+
+    private fun biometricEnabledAndAvailable(): Boolean =
+        LockSettings.isBiometricEnabled(this) && biometricAvailable()
 
     private fun biometricAvailable(): Boolean =
         BiometricManager.from(this).canAuthenticate(BIOMETRIC_STRONG) ==
             BiometricManager.BIOMETRIC_SUCCESS
 
     private fun showBiometricPrompt() {
-        if (!biometricAvailable()) return
+        if (!biometricEnabledAndAvailable()) return
         val prompt = BiometricPrompt(
             this,
             ContextCompat.getMainExecutor(this),
@@ -190,7 +283,7 @@ class UnlockActivity : AppCompatActivity() {
         prompt.authenticate(info)
     }
 
-    // --- Прочее -----------------------------------------------------------------
+    // --- Прочее ---------------------------------------------------------------
 
     private fun grant() {
         ReadGate.markUnlocked()
@@ -198,29 +291,21 @@ class UnlockActivity : AppCompatActivity() {
         finish()
     }
 
-    private fun renderDots() {
-        pinDisplay.text = "•".repeat(entered.length)
-    }
-
     private fun resetInput() {
         entered.setLength(0)
-        renderDots()
+        dotsCount = 0
     }
 
     private fun showError(text: String) {
-        errorView.text = text
+        errorText = text
     }
 
     private fun clearError() {
-        if (errorView.text.isNotEmpty()) errorView.text = ""
-    }
-
-    private fun setKeypadEnabled(enabled: Boolean) {
-        keys.forEach { it.isEnabled = enabled }
+        if (errorText.isNotEmpty()) errorText = ""
     }
 
     private fun startLockCountdown(remainingMs: Long) {
-        setKeypadEnabled(false)
+        keypadEnabled = false
         lockTimer?.cancel()
         lockTimer = object : CountDownTimer(remainingMs, 1000) {
             override fun onTick(msLeft: Long) {
@@ -228,7 +313,7 @@ class UnlockActivity : AppCompatActivity() {
             }
             override fun onFinish() {
                 clearError()
-                setKeypadEnabled(true)
+                keypadEnabled = true
             }
         }.start()
     }
@@ -236,5 +321,10 @@ class UnlockActivity : AppCompatActivity() {
     override fun onDestroy() {
         super.onDestroy()
         lockTimer?.cancel()
+    }
+
+    companion object {
+        /** Принудительный режим установки/смены кода (из настроек), даже если код уже задан. */
+        const val EXTRA_FORCE_SETUP = "extra_force_setup"
     }
 }

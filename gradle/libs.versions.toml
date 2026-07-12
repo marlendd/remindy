@@ -1,7 +1,6 @@
 [versions]
 agp = "9.2.1"
 appcompat = "1.7.1"
-recyclerview = "1.4.0"
 vosk = "0.3.75"
 jna = "5.18.1"
 junit = "4.13.2"
@@ -12,10 +11,15 @@ coroutines = "1.11.0"
 # Этап 5: шифрование и замок чтения
 sqlcipher = "4.17.0"
 biometric = "1.1.0"
+# Фаза 4: Compose-UI. kotlin должен совпадать с встроенным в AGP 9.2.1 Kotlin
+# (KSP уже 2.3.10 → compose-compiler-плагин тоже 2.3.10). Версии Compose из BOM.
+kotlin = "2.3.10"
+composeBom = "2026.06.01"
+activityCompose = "1.13.0"
+lifecycleCompose = "2.11.0"
 
 [libraries]
 androidx-appcompat = { module = "androidx.appcompat:appcompat", version.ref = "appcompat" }
-androidx-recyclerview = { module = "androidx.recyclerview:recyclerview", version.ref = "recyclerview" }
 androidx-room-runtime = { module = "androidx.room:room-runtime", version.ref = "room" }
 androidx-room-compiler = { module = "androidx.room:room-compiler", version.ref = "room" }
 kotlinx-coroutines-android = { module = "org.jetbrains.kotlinx:kotlinx-coroutines-android", version.ref = "coroutines" }
@@ -23,8 +27,18 @@ kotlinx-coroutines-android = { module = "org.jetbrains.kotlinx:kotlinx-coroutine
 sqlcipher-android = { module = "net.zetetic:sqlcipher-android", version.ref = "sqlcipher" }
 androidx-biometric = { module = "androidx.biometric:biometric", version.ref = "biometric" }
 junit = { module = "junit:junit", version.ref = "junit" }
+# Фаза 4: Compose (версии ui/material3 приходят из compose-bom)
+compose-bom = { module = "androidx.compose:compose-bom", version.ref = "composeBom" }
+compose-ui = { module = "androidx.compose.ui:ui" }
+compose-ui-tooling = { module = "androidx.compose.ui:ui-tooling" }
+compose-ui-tooling-preview = { module = "androidx.compose.ui:ui-tooling-preview" }
+compose-material3 = { module = "androidx.compose.material3:material3" }
+androidx-activity-compose = { module = "androidx.activity:activity-compose", version.ref = "activityCompose" }
+androidx-lifecycle-runtime-compose = { module = "androidx.lifecycle:lifecycle-runtime-compose", version.ref = "lifecycleCompose" }
 
 [plugins]
 android-application = { id = "com.android.application", version.ref = "agp" }
 ksp = { id = "com.google.devtools.ksp", version.ref = "ksp" }
 androidx-room = { id = "androidx.room", version.ref = "room" }
+# Фаза 4: compose-compiler-плагин, версия = версии Kotlin (встроенного в AGP 9)
+compose-compiler = { id = "org.jetbrains.kotlin.plugin.compose", version.ref = "kotlin" }

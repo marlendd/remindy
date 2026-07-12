@@ -4,30 +4,51 @@ import android.Manifest
 import android.content.Intent
 import android.content.pm.PackageManager
 import android.os.Bundle
-import android.util.TypedValue
-import android.view.View
-import android.view.inputmethod.EditorInfo
-import android.widget.Button
-import android.widget.EditText
-import android.widget.TextView
 import android.widget.Toast
+import androidx.activity.compose.setContent
+import androidx.activity.enableEdgeToEdge
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AppCompatActivity
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.safeDrawing
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.windowInsetsPadding
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.text.KeyboardActions
+import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.material3.Button
+import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.Text
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.TextStyle
+import androidx.compose.ui.text.input.ImeAction
+import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.core.content.ContextCompat
-import androidx.core.view.ViewCompat
-import androidx.core.view.WindowInsetsCompat
 import androidx.lifecycle.lifecycleScope
-import androidx.recyclerview.widget.LinearLayoutManager
-import androidx.recyclerview.widget.RecyclerView
 import com.marlendd.remindy.R
 import com.marlendd.remindy.data.Item
 import com.marlendd.remindy.data.RecordRepository
 import com.marlendd.remindy.data.RemindyDatabase
-import com.marlendd.remindy.list.ItemAdapter
 import com.marlendd.remindy.record.ConfirmationActivity
+import com.marlendd.remindy.security.LockSettings
 import com.marlendd.remindy.security.ReadGate
 import com.marlendd.remindy.security.UnlockActivity
 import com.marlendd.remindy.security.protectFromRecents
+import com.marlendd.remindy.ui.RecordRow
+import com.marlendd.remindy.ui.theme.RemindyTheme
 import com.marlendd.remindy.voice.VoskModelHolder
 import kotlinx.coroutines.launch
 import org.json.JSONObject
@@ -40,12 +61,11 @@ import java.io.IOException
 private const val SAMPLE_RATE = 16000.0f
 
 /**
- * Экран поиска (ТЗ F2). Голосовой запрос или ручной ввод → нечёткий поиск
- * (нормализация → стеммер → Левенштейн → синонимы). Результаты крупным списком,
- * тап – редактирование. Если ничего не нашлось – полный список; выбор из него
- * молча запоминает запрос как синоним (самообучение).
- *
- * Чтение под замком (этап 5): база и модель поднимаются только после входа.
+ * Экран поиска (ТЗ F2, Фаза 4: Compose). Голосовой запрос или ручной ввод → нечёткий поиск
+ * (нормализация → стеммер → Левенштейн → синонимы). Результаты крупным списком, тап –
+ * редактирование. Если ничего не нашлось – полный список; выбор из него молча запоминает
+ * запрос как синоним (самообучение). Чтение под замком (этап 5): база и модель поднимаются
+ * только после входа, если замок включён ([LockSettings]).
  */
 class SearchActivity : AppCompatActivity(), RecognitionListener {
 
@@ -55,19 +75,26 @@ class SearchActivity : AppCompatActivity(), RecognitionListener {
     private var model: Model? = null
     private var speechService: SpeechService? = null
     private var recognizer: Recognizer? = null
-    private var capturing = false
 
     // не null → показан полный список после нулевого поиска, выбор обучит синоним
     private var learnQuery: String? = null
 
-    private lateinit var rootSearch: View
-    private lateinit var queryEdit: EditText
-    private lateinit var voiceButton: Button
-    private lateinit var statusText: TextView
-    private lateinit var adapter: ItemAdapter
+    // UI-состояние
+    private var query by mutableStateOf("")
+    private var statusText by mutableStateOf("")
+    private var results by mutableStateOf<List<Item>>(emptyList())
+    private var voiceEnabled by mutableStateOf(false)
+    private var capturing by mutableStateOf(false)
 
     private val micPermission =
-        registerForActivityResult(ActivityResultContracts.RequestPermission()) { }
+        registerForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
+            when {
+                granted -> startVoice() // доступ дали по тапу голоса – сразу пишем
+                // «навсегда отклонён» → подсказываем путь в настройки (не тупик: текст ищет всегда)
+                !shouldShowRequestPermissionRationale(Manifest.permission.RECORD_AUDIO) ->
+                    Toast.makeText(this, R.string.mic_denied_settings, Toast.LENGTH_LONG).show()
+            }
+        }
 
     private val unlockLauncher =
         registerForActivityResult(ActivityResultContracts.StartActivityForResult()) { result ->
@@ -77,31 +104,11 @@ class SearchActivity : AppCompatActivity(), RecognitionListener {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         protectFromRecents() // результаты поиска – не в снимок «недавних» (мимо гейта)
-        setContentView(R.layout.activity_search)
-        title = getString(R.string.title_search)
+        enableEdgeToEdge()
+        statusText = getString(R.string.search_prompt)
+        setContent { RemindyTheme { SearchScreen() } }
 
-        rootSearch = findViewById(R.id.rootSearch)
-        queryEdit = findViewById(R.id.queryEdit)
-        voiceButton = findViewById(R.id.voiceButton)
-        statusText = findViewById(R.id.statusText)
-        val recycler: RecyclerView = findViewById(R.id.recycler)
-
-        adapter = ItemAdapter(onClick = ::onResultTap)
-        recycler.layoutManager = LinearLayoutManager(this)
-        recycler.adapter = adapter
-        applyWindowInsets()
-
-        voiceButton.isEnabled = false
-        voiceButton.setOnClickListener { toggleVoice() }
-        queryEdit.setOnEditorActionListener { _, actionId, _ ->
-            if (actionId == EditorInfo.IME_ACTION_SEARCH) {
-                runSearch(queryEdit.text.toString()); true
-            } else {
-                false
-            }
-        }
-
-        if (ReadGate.unlocked) onUnlocked()
+        if (!LockSettings.isLockEnabled(this) || ReadGate.unlocked) onUnlocked()
         else unlockLauncher.launch(Intent(this, UnlockActivity::class.java))
     }
 
@@ -115,7 +122,8 @@ class SearchActivity : AppCompatActivity(), RecognitionListener {
                 return@launch
             }
             repository = repo
-            if (!hasMicPermission()) micPermission.launch(Manifest.permission.RECORD_AUDIO)
+            // Микрофон спрашиваем не заранее, а по тапу голоса (startVoice) – меньше лишних
+            // запросов, а отказ обрабатывается там же.
             loadModel()
         }
     }
@@ -124,15 +132,62 @@ class SearchActivity : AppCompatActivity(), RecognitionListener {
         lifecycleScope.launch {
             try {
                 model = VoskModelHolder.get(this@SearchActivity)
-                voiceButton.isEnabled = true
+                voiceEnabled = true
             } catch (_: Exception) {
                 // Голос недоступен, но текстовый поиск работает
-                voiceButton.isEnabled = false
+                voiceEnabled = false
             }
         }
     }
 
-    // --- Голос ------------------------------------------------------------------
+    // --- UI -------------------------------------------------------------------
+
+    @Composable
+    private fun SearchScreen() {
+        Column(
+            Modifier
+                .fillMaxSize()
+                .windowInsetsPadding(WindowInsets.safeDrawing)
+                .padding(16.dp),
+        ) {
+            Text(
+                stringResource(R.string.title_search),
+                fontSize = 24.sp,
+                modifier = Modifier.padding(bottom = 12.dp),
+            )
+            OutlinedTextField(
+                value = query,
+                onValueChange = { query = it },
+                singleLine = true,
+                placeholder = { Text(stringResource(R.string.search_hint)) },
+                keyboardOptions = KeyboardOptions(
+                    autoCorrectEnabled = false,
+                    imeAction = ImeAction.Search,
+                ),
+                keyboardActions = KeyboardActions(onSearch = { runSearch(query) }),
+                textStyle = TextStyle(fontSize = 22.sp),
+                modifier = Modifier.fillMaxWidth(),
+            )
+            Spacer(Modifier.size(8.dp))
+            Button(
+                onClick = { toggleVoice() },
+                enabled = voiceEnabled,
+                modifier = Modifier.fillMaxWidth().heightIn(min = 72.dp),
+            ) {
+                Text(stringResource(if (capturing) R.string.btn_stop else R.string.btn_find), fontSize = 24.sp)
+            }
+            Spacer(Modifier.size(12.dp))
+            Text(statusText, fontSize = 18.sp)
+            Spacer(Modifier.size(8.dp))
+            LazyColumn(Modifier.fillMaxSize()) {
+                items(results, key = { it.id }) { item ->
+                    RecordRow(item = item, onClick = { onResultTap(item) })
+                }
+            }
+        }
+    }
+
+    // --- Голос ----------------------------------------------------------------
 
     private fun toggleVoice() {
         if (capturing) speechService?.stop() else startVoice()
@@ -149,11 +204,10 @@ class SearchActivity : AppCompatActivity(), RecognitionListener {
             recognizer = rec
             speechService = SpeechService(rec, SAMPLE_RATE).also { it.startListening(this) }
             capturing = true
-            voiceButton.setText(R.string.btn_stop)
-            statusText.setText(R.string.search_listening)
+            statusText = getString(R.string.search_listening)
         } catch (e: IOException) {
             releaseSpeechService()
-            statusText.text = getString(R.string.status_error, e.message)
+            statusText = getString(R.string.status_error, e.message)
         }
     }
 
@@ -161,8 +215,7 @@ class SearchActivity : AppCompatActivity(), RecognitionListener {
         if (!capturing) return
         capturing = false
         releaseSpeechService()
-        voiceButton.setText(R.string.btn_find)
-        queryEdit.setText(text)
+        query = text
         runSearch(text)
     }
 
@@ -176,55 +229,55 @@ class SearchActivity : AppCompatActivity(), RecognitionListener {
         recognizer = null
     }
 
-    // --- Поиск ------------------------------------------------------------------
+    // --- Поиск ----------------------------------------------------------------
 
     private fun runSearch(rawQuery: String) {
-        val query = rawQuery.trim()
-        if (query.isEmpty()) {
-            statusText.setText(R.string.search_query_empty)
+        val q = rawQuery.trim()
+        if (q.isEmpty()) {
+            statusText = getString(R.string.search_query_empty)
             return
         }
         val repo = repository ?: return
         lifecycleScope.launch {
             try {
-                val items = repo.allItems()
-                if (items.isEmpty()) {
+                val allItems = repo.allItems()
+                if (allItems.isEmpty()) {
                     learnQuery = null
-                    adapter.submitList(emptyList())
-                    statusText.setText(R.string.search_empty)
+                    results = emptyList()
+                    statusText = getString(R.string.search_empty)
                     return@launch
                 }
                 val aliases = repo.aliasesByItem()
-                val targets = items.map {
+                val targets = allItems.map {
                     SearchTarget(it.id, it.nameNorm, aliases[it.id].orEmpty())
                 }
-                val matches = engine.search(query, targets)
+                val matches = engine.search(q, targets)
                 if (matches.isNotEmpty()) {
                     learnQuery = null
-                    val byId = items.associateBy { it.id }
-                    val results = matches.mapNotNull { byId[it.id] }
-                    adapter.submitList(results)
-                    statusText.text = getString(R.string.search_found, results.size)
+                    val byId = allItems.associateBy { it.id }
+                    val found = matches.mapNotNull { byId[it.id] }
+                    results = found
+                    statusText = getString(R.string.search_found, found.size)
                 } else {
                     // Ничего не нашли – показываем полный список, выбор обучит синоним
-                    learnQuery = query
-                    adapter.submitList(items) // items уже отсортированы по updated_at DESC
-                    statusText.setText(R.string.search_none)
+                    learnQuery = q
+                    results = allItems // уже отсортированы по updated_at DESC
+                    statusText = getString(R.string.search_none)
                 }
             } catch (e: Exception) {
                 // Ошибка БД (переполнен диск/повреждение) – показываем, а не падаем
-                statusText.text = getString(R.string.status_error, e.message)
+                statusText = getString(R.string.status_error, e.message)
             }
         }
     }
 
     private fun onResultTap(item: Item) {
-        val query = learnQuery
+        val q = learnQuery
         learnQuery = null // одноразово: повторные тапы по списку не переобучают синоним
         val repo = repository
-        if (query != null && repo != null) {
+        if (q != null && repo != null) {
             lifecycleScope.launch {
-                try { repo.learnSynonym(query, item.id) } catch (_: Exception) { }
+                try { repo.learnSynonym(q, item.id) } catch (_: Exception) { }
             }
             Toast.makeText(this, R.string.toast_learned, Toast.LENGTH_SHORT).show()
         }
@@ -234,11 +287,11 @@ class SearchActivity : AppCompatActivity(), RecognitionListener {
         )
     }
 
-    // --- RecognitionListener ----------------------------------------------------
+    // --- RecognitionListener --------------------------------------------------
 
     override fun onPartialResult(hypothesis: String?) {
         val partial = hypothesis?.let { JSONObject(it).optString("partial") }.orEmpty()
-        if (partial.isNotBlank()) queryEdit.setText(partial)
+        if (partial.isNotBlank()) query = partial
     }
 
     override fun onResult(hypothesis: String?) {
@@ -254,38 +307,25 @@ class SearchActivity : AppCompatActivity(), RecognitionListener {
     override fun onError(exception: Exception?) {
         capturing = false
         releaseSpeechService()
-        voiceButton.setText(R.string.btn_find)
-        statusText.text = getString(R.string.status_error, exception?.message)
+        statusText = getString(R.string.status_error, exception?.message)
     }
 
     override fun onTimeout() {
-        finishVoiceCapture(queryEdit.text.toString())
+        finishVoiceCapture(query)
     }
 
-    // --- Прочее -----------------------------------------------------------------
+    // --- Прочее ---------------------------------------------------------------
 
     private fun hasMicPermission(): Boolean =
         ContextCompat.checkSelfPermission(this, Manifest.permission.RECORD_AUDIO) ==
             PackageManager.PERMISSION_GRANTED
-
-    private fun applyWindowInsets() {
-        val base = TypedValue.applyDimension(
-            TypedValue.COMPLEX_UNIT_DIP, 16f, resources.displayMetrics,
-        ).toInt()
-        ViewCompat.setOnApplyWindowInsetsListener(rootSearch) { view, insets ->
-            val bars = insets.getInsets(WindowInsetsCompat.Type.systemBars() or WindowInsetsCompat.Type.ime())
-            view.setPadding(base + bars.left, base, base + bars.right, base + bars.bottom)
-            insets
-        }
-    }
 
     override fun onStop() {
         super.onStop()
         if (capturing) {
             capturing = false
             releaseSpeechService()
-            voiceButton.setText(R.string.btn_find)
-            statusText.setText(R.string.search_prompt)
+            statusText = getString(R.string.search_prompt)
         }
     }
 
