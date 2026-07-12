@@ -39,4 +39,21 @@
     <string name="search_query_empty">Скажите или впишите запрос.</string>
     <string name="toast_learned">Запомнил</string>
     <string name="row_updated">Записано: %1$s</string>
+
+    <!-- Замок чтения (этап 5) -->
+    <string name="title_unlock">Вход</string>
+    <string name="unlock_create">Придумайте код приложения (4–8 цифр)</string>
+    <string name="unlock_repeat">Повторите код</string>
+    <string name="unlock_enter">Введите код приложения</string>
+    <string name="unlock_too_short">Код не короче 4 цифр</string>
+    <string name="unlock_mismatch">Коды не совпали, попробуйте снова</string>
+    <string name="unlock_wrong">Неверный код. Осталось попыток: %1$d</string>
+    <string name="unlock_locked">Слишком много попыток. Подождите %1$d с</string>
+    <string name="unlock_biometric_title">Вход в приложение</string>
+    <string name="unlock_biometric_subtitle">Приложите палец или введите код приложения</string>
+    <string name="unlock_use_pin">Ввести код</string>
+    <string name="btn_ok">ОК</string>
+    <string name="btn_backspace">⌫</string>
+    <string name="btn_biometric">Отпечаток</string>
+    <string name="db_error">Не удалось открыть данные</string>
 </resources>

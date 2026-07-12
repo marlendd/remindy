@@ -13,6 +13,7 @@ import androidx.lifecycle.lifecycleScope
 import com.marlendd.remindy.R
 import com.marlendd.remindy.data.RecordRepository
 import com.marlendd.remindy.data.RemindyDatabase
+import com.marlendd.remindy.security.protectFromRecents
 import kotlinx.coroutines.launch
 
 /**
@@ -20,10 +21,13 @@ import kotlinx.coroutines.launch
  *  - новая запись из голоса: поля предзаполнены разбором, кнопка «Переписать»;
  *  - редактирование из списка (передан EXTRA_ITEM_ID): кнопка «Отмена», Save обновляет.
  * Ручной ввод доступен всегда (поля редактируемы, даже если распознавание пустое).
+ *
+ * Запись/правку не гейтим (этап 5): «одно касание» цело. База поднимается на IO-потоке,
+ * «Сохранить» доступна по её готовности.
  */
 class ConfirmationActivity : AppCompatActivity() {
 
-    private lateinit var repository: RecordRepository
+    private var repository: RecordRepository? = null
     private lateinit var itemEdit: EditText
     private lateinit var locationEdit: EditText
 
@@ -31,10 +35,10 @@ class ConfirmationActivity : AppCompatActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        protectFromRecents() // при правке из списка тут видно место вещи – прячем из «недавних»
         setContentView(R.layout.activity_confirm)
         title = getString(R.string.title_confirm)
 
-        repository = RecordRepository(RemindyDatabase.get(this))
         itemEdit = findViewById(R.id.itemEdit)
         locationEdit = findViewById(R.id.locationEdit)
         val saveButton: Button = findViewById(R.id.saveButton)
@@ -45,7 +49,6 @@ class ConfirmationActivity : AppCompatActivity() {
         editingId = intent.getLongExtra(EXTRA_ITEM_ID, NO_ID)
         if (editingId != NO_ID) {
             rewriteButton.setText(R.string.btn_cancel)
-            loadForEditing(editingId)
         } else {
             itemEdit.setText(intent.getStringExtra(EXTRA_ITEM).orEmpty())
             locationEdit.setText(intent.getStringExtra(EXTRA_LOCATION).orEmpty())
@@ -53,18 +56,32 @@ class ConfirmationActivity : AppCompatActivity() {
 
         saveButton.setOnClickListener { save() }
         rewriteButton.setOnClickListener { finish() }
-    }
 
-    private fun loadForEditing(id: Long) {
+        // База открывается на IO (Keystore + SQLCipher); до готовности «Сохранить» неактивна
+        saveButton.isEnabled = false
         lifecycleScope.launch {
-            val existing = repository.findById(id) ?: return@launch
-            // Не затираем то, что пользователь успел набрать, пока шёл запрос
-            if (itemEdit.text.isNullOrEmpty()) itemEdit.setText(existing.name)
-            if (locationEdit.text.isNullOrEmpty()) locationEdit.setText(existing.location)
+            val repo = try {
+                RecordRepository(RemindyDatabase.getAsync(this@ConfirmationActivity))
+            } catch (e: Exception) {
+                Toast.makeText(this@ConfirmationActivity, R.string.db_error, Toast.LENGTH_LONG).show()
+                finish()
+                return@launch
+            }
+            repository = repo
+            saveButton.isEnabled = true
+            if (editingId != NO_ID) loadForEditing(repo, editingId)
         }
     }
 
+    private suspend fun loadForEditing(repo: RecordRepository, id: Long) {
+        val existing = repo.findById(id) ?: return
+        // Не затираем то, что пользователь успел набрать, пока шёл запрос
+        if (itemEdit.text.isNullOrEmpty()) itemEdit.setText(existing.name)
+        if (locationEdit.text.isNullOrEmpty()) locationEdit.setText(existing.location)
+    }
+
     private fun save() {
+        val repo = repository ?: return
         val name = itemEdit.text.toString().trim()
         val location = locationEdit.text.toString().trim()
         if (name.isEmpty()) {
@@ -76,12 +93,12 @@ class ConfirmationActivity : AppCompatActivity() {
                 val now = System.currentTimeMillis()
                 val id = editingId
                 if (id != NO_ID) {
-                    val existing = repository.findById(id)
+                    val existing = repo.findById(id)
                     if (existing != null) {
-                        repository.update(existing.copy(name = name, location = location), now)
+                        repo.update(existing.copy(name = name, location = location), now)
                     }
                 } else {
-                    repository.save(name, location, now)
+                    repo.save(name, location, now)
                 }
                 Toast.makeText(this@ConfirmationActivity, R.string.toast_saved, Toast.LENGTH_SHORT).show()
                 finish()

@@ -25,6 +25,9 @@ import com.marlendd.remindy.data.RecordRepository
 import com.marlendd.remindy.data.RemindyDatabase
 import com.marlendd.remindy.list.ItemAdapter
 import com.marlendd.remindy.record.ConfirmationActivity
+import com.marlendd.remindy.security.ReadGate
+import com.marlendd.remindy.security.UnlockActivity
+import com.marlendd.remindy.security.protectFromRecents
 import com.marlendd.remindy.voice.VoskModelHolder
 import kotlinx.coroutines.launch
 import org.json.JSONObject
@@ -41,10 +44,12 @@ private const val SAMPLE_RATE = 16000.0f
  * (нормализация → стеммер → Левенштейн → синонимы). Результаты крупным списком,
  * тап – редактирование. Если ничего не нашлось – полный список; выбор из него
  * молча запоминает запрос как синоним (самообучение).
+ *
+ * Чтение под замком (этап 5): база и модель поднимаются только после входа.
  */
 class SearchActivity : AppCompatActivity(), RecognitionListener {
 
-    private lateinit var repository: RecordRepository
+    private var repository: RecordRepository? = null
     private val engine = SearchEngine(RussianStemmer)
 
     private var model: Model? = null
@@ -64,12 +69,17 @@ class SearchActivity : AppCompatActivity(), RecognitionListener {
     private val micPermission =
         registerForActivityResult(ActivityResultContracts.RequestPermission()) { }
 
+    private val unlockLauncher =
+        registerForActivityResult(ActivityResultContracts.StartActivityForResult()) { result ->
+            if (result.resultCode == RESULT_OK) onUnlocked() else finish()
+        }
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        protectFromRecents() // результаты поиска – не в снимок «недавних» (мимо гейта)
         setContentView(R.layout.activity_search)
         title = getString(R.string.title_search)
 
-        repository = RecordRepository(RemindyDatabase.get(this))
         rootSearch = findViewById(R.id.rootSearch)
         queryEdit = findViewById(R.id.queryEdit)
         voiceButton = findViewById(R.id.voiceButton)
@@ -91,8 +101,23 @@ class SearchActivity : AppCompatActivity(), RecognitionListener {
             }
         }
 
-        if (!hasMicPermission()) micPermission.launch(Manifest.permission.RECORD_AUDIO)
-        loadModel()
+        if (ReadGate.unlocked) onUnlocked()
+        else unlockLauncher.launch(Intent(this, UnlockActivity::class.java))
+    }
+
+    private fun onUnlocked() {
+        lifecycleScope.launch {
+            val repo = try {
+                RecordRepository(RemindyDatabase.getAsync(this@SearchActivity))
+            } catch (e: Exception) {
+                Toast.makeText(this@SearchActivity, R.string.db_error, Toast.LENGTH_LONG).show()
+                finish()
+                return@launch
+            }
+            repository = repo
+            if (!hasMicPermission()) micPermission.launch(Manifest.permission.RECORD_AUDIO)
+            loadModel()
+        }
     }
 
     private fun loadModel() {
@@ -159,30 +184,36 @@ class SearchActivity : AppCompatActivity(), RecognitionListener {
             statusText.setText(R.string.search_query_empty)
             return
         }
+        val repo = repository ?: return
         lifecycleScope.launch {
-            val items = repository.allItems()
-            if (items.isEmpty()) {
-                learnQuery = null
-                adapter.submitList(emptyList())
-                statusText.setText(R.string.search_empty)
-                return@launch
-            }
-            val aliases = repository.aliasesByItem()
-            val targets = items.map {
-                SearchTarget(it.id, it.nameNorm, aliases[it.id].orEmpty())
-            }
-            val matches = engine.search(query, targets)
-            if (matches.isNotEmpty()) {
-                learnQuery = null
-                val byId = items.associateBy { it.id }
-                val results = matches.mapNotNull { byId[it.id] }
-                adapter.submitList(results)
-                statusText.text = getString(R.string.search_found, results.size)
-            } else {
-                // Ничего не нашли – показываем полный список, выбор обучит синоним
-                learnQuery = query
-                adapter.submitList(items) // items уже отсортированы по updated_at DESC
-                statusText.setText(R.string.search_none)
+            try {
+                val items = repo.allItems()
+                if (items.isEmpty()) {
+                    learnQuery = null
+                    adapter.submitList(emptyList())
+                    statusText.setText(R.string.search_empty)
+                    return@launch
+                }
+                val aliases = repo.aliasesByItem()
+                val targets = items.map {
+                    SearchTarget(it.id, it.nameNorm, aliases[it.id].orEmpty())
+                }
+                val matches = engine.search(query, targets)
+                if (matches.isNotEmpty()) {
+                    learnQuery = null
+                    val byId = items.associateBy { it.id }
+                    val results = matches.mapNotNull { byId[it.id] }
+                    adapter.submitList(results)
+                    statusText.text = getString(R.string.search_found, results.size)
+                } else {
+                    // Ничего не нашли – показываем полный список, выбор обучит синоним
+                    learnQuery = query
+                    adapter.submitList(items) // items уже отсортированы по updated_at DESC
+                    statusText.setText(R.string.search_none)
+                }
+            } catch (e: Exception) {
+                // Ошибка БД (переполнен диск/повреждение) – показываем, а не падаем
+                statusText.text = getString(R.string.status_error, e.message)
             }
         }
     }
@@ -190,8 +221,11 @@ class SearchActivity : AppCompatActivity(), RecognitionListener {
     private fun onResultTap(item: Item) {
         val query = learnQuery
         learnQuery = null // одноразово: повторные тапы по списку не переобучают синоним
-        if (query != null) {
-            lifecycleScope.launch { repository.learnSynonym(query, item.id) }
+        val repo = repository
+        if (query != null && repo != null) {
+            lifecycleScope.launch {
+                try { repo.learnSynonym(query, item.id) } catch (_: Exception) { }
+            }
             Toast.makeText(this, R.string.toast_learned, Toast.LENGTH_SHORT).show()
         }
         startActivity(

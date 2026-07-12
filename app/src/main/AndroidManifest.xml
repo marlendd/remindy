@@ -2,6 +2,8 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
 
     <uses-permission android:name="android.permission.RECORD_AUDIO" />
+    <!-- Замок чтения (этап 5). НЕТ INTERNET – приложение полностью офлайн. -->
+    <uses-permission android:name="android.permission.USE_BIOMETRIC" />
 
     <uses-feature
         android:name="android.hardware.microphone"
@@ -42,6 +44,13 @@
             android:screenOrientation="portrait"
             android:configChanges="orientation|screenSize|smallestScreenSize|keyboardHidden|uiMode|navigation|fontScale"
             android:windowSoftInputMode="adjustResize" />
+
+        <!-- Замок чтения: configChanges, чтобы поворот не пересоздавал экран и не перезапускал биометрию -->
+        <activity
+            android:name=".security.UnlockActivity"
+            android:exported="false"
+            android:screenOrientation="portrait"
+            android:configChanges="orientation|screenSize|smallestScreenSize|keyboardHidden|uiMode|navigation|fontScale" />
 
     </application>
 

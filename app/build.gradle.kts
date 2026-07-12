@@ -46,6 +46,10 @@ dependencies {
     ksp(libs.androidx.room.compiler)
     implementation(libs.kotlinx.coroutines.android)
 
+    // Этап 5: SQLCipher (шифрование базы) + BiometricPrompt (замок чтения)
+    implementation(libs.sqlcipher.android)
+    implementation(libs.androidx.biometric)
+
     testImplementation(libs.junit)
 }
 

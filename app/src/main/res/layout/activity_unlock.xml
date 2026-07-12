@@ -1,0 +1,79 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:id="@+id/rootUnlock"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:orientation="vertical"
+    android:gravity="center_horizontal"
+    android:padding="16dp">
+
+    <TextView
+        android:id="@+id/titleUnlock"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="16dp"
+        android:gravity="center"
+        android:text="@string/unlock_enter"
+        android:textSize="22sp" />
+
+    <TextView
+        android:id="@+id/pinDisplay"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="16dp"
+        android:gravity="center"
+        android:minHeight="48dp"
+        android:textSize="36sp"
+        android:textStyle="bold" />
+
+    <TextView
+        android:id="@+id/errorUnlock"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:gravity="center"
+        android:minHeight="28dp"
+        android:textColor="#C0392B"
+        android:textSize="18sp" />
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="0dp"
+        android:layout_weight="1"
+        android:orientation="vertical">
+
+        <LinearLayout style="@style/KeypadRow">
+            <Button android:id="@+id/btnKey1" style="@style/KeypadKey" android:text="1" />
+            <Button android:id="@+id/btnKey2" style="@style/KeypadKey" android:text="2" />
+            <Button android:id="@+id/btnKey3" style="@style/KeypadKey" android:text="3" />
+        </LinearLayout>
+
+        <LinearLayout style="@style/KeypadRow">
+            <Button android:id="@+id/btnKey4" style="@style/KeypadKey" android:text="4" />
+            <Button android:id="@+id/btnKey5" style="@style/KeypadKey" android:text="5" />
+            <Button android:id="@+id/btnKey6" style="@style/KeypadKey" android:text="6" />
+        </LinearLayout>
+
+        <LinearLayout style="@style/KeypadRow">
+            <Button android:id="@+id/btnKey7" style="@style/KeypadKey" android:text="7" />
+            <Button android:id="@+id/btnKey8" style="@style/KeypadKey" android:text="8" />
+            <Button android:id="@+id/btnKey9" style="@style/KeypadKey" android:text="9" />
+        </LinearLayout>
+
+        <LinearLayout style="@style/KeypadRow">
+            <Button android:id="@+id/btnBackspace" style="@style/KeypadKey" android:text="@string/btn_backspace" />
+            <Button android:id="@+id/btnKey0" style="@style/KeypadKey" android:text="0" />
+            <Button android:id="@+id/btnOk" style="@style/KeypadKey" android:text="@string/btn_ok" />
+        </LinearLayout>
+    </LinearLayout>
+
+    <Button
+        android:id="@+id/btnBiometric"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="8dp"
+        android:minHeight="56dp"
+        android:text="@string/btn_biometric"
+        android:textSize="20sp"
+        android:visibility="gone" />
+
+</LinearLayout>

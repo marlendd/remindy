@@ -6,6 +6,7 @@ import android.util.TypedValue
 import android.view.View
 import android.widget.TextView
 import android.widget.Toast
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.view.ViewCompat
 import androidx.core.view.WindowInsetsCompat
@@ -18,21 +19,32 @@ import com.marlendd.remindy.data.Item
 import com.marlendd.remindy.data.RecordRepository
 import com.marlendd.remindy.data.RemindyDatabase
 import com.marlendd.remindy.record.ConfirmationActivity
+import com.marlendd.remindy.security.ReadGate
+import com.marlendd.remindy.security.UnlockActivity
+import com.marlendd.remindy.security.protectFromRecents
 import kotlinx.coroutines.launch
 
-/** Список записей (новые сверху): свайп – удалить, тап – редактировать (ТЗ F3). */
+/**
+ * Список записей (новые сверху): свайп – удалить, тап – редактировать (ТЗ F3).
+ * Чтение под замком (этап 5): данные грузим только после успешного входа.
+ */
 class ListActivity : AppCompatActivity() {
 
-    private lateinit var repository: RecordRepository
+    private var repository: RecordRepository? = null
     private lateinit var emptyText: TextView
     private lateinit var adapter: ItemAdapter
 
+    private val unlockLauncher =
+        registerForActivityResult(ActivityResultContracts.StartActivityForResult()) { result ->
+            if (result.resultCode == RESULT_OK) onUnlocked() else finish()
+        }
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        protectFromRecents() // содержимое списка – не в снимок «недавних» (мимо гейта)
         setContentView(R.layout.activity_list)
         title = getString(R.string.title_list)
 
-        repository = RecordRepository(RemindyDatabase.get(this))
         emptyText = findViewById(R.id.emptyText)
         val recycler: RecyclerView = findViewById(R.id.recycler)
 
@@ -42,18 +54,34 @@ class ListActivity : AppCompatActivity() {
 
         applyWindowInsets(recycler)
         attachSwipeToDelete(recycler)
-        observeItems()
+
+        if (ReadGate.unlocked) onUnlocked()
+        else unlockLauncher.launch(Intent(this, UnlockActivity::class.java))
     }
 
-    private fun observeItems() {
-        // Сбор Flow до onDestroy; для одного простого экрана списка этого достаточно
+    private fun onUnlocked() {
         lifecycleScope.launch {
-            repository.observeAll().collect { items ->
-                adapter.submitList(items)
-                emptyText.visibility = if (items.isEmpty()) View.VISIBLE else View.GONE
+            val repo = acquireRepo() ?: return@launch
+            repository = repo
+            try {
+                repo.observeAll().collect { items ->
+                    adapter.submitList(items)
+                    emptyText.visibility = if (items.isEmpty()) View.VISIBLE else View.GONE
+                }
+            } catch (e: Exception) {
+                Toast.makeText(this@ListActivity, R.string.db_error, Toast.LENGTH_LONG).show()
             }
         }
     }
+
+    private suspend fun acquireRepo(): RecordRepository? =
+        try {
+            RecordRepository(RemindyDatabase.getAsync(this))
+        } catch (e: Exception) {
+            Toast.makeText(this, R.string.db_error, Toast.LENGTH_LONG).show()
+            finish()
+            null
+        }
 
     private fun openForEditing(item: Item) {
         startActivity(
@@ -73,10 +101,17 @@ class ListActivity : AppCompatActivity() {
             ) = false
 
             override fun onSwiped(viewHolder: RecyclerView.ViewHolder, direction: Int) {
-                val item = adapter.currentList[viewHolder.bindingAdapterPosition]
+                val repo = repository ?: return
+                val position = viewHolder.bindingAdapterPosition
+                if (position !in adapter.currentList.indices) return
+                val item = adapter.currentList[position]
                 lifecycleScope.launch {
-                    repository.delete(item)
-                    Toast.makeText(this@ListActivity, R.string.toast_deleted, Toast.LENGTH_SHORT).show()
+                    try {
+                        repo.delete(item)
+                        Toast.makeText(this@ListActivity, R.string.toast_deleted, Toast.LENGTH_SHORT).show()
+                    } catch (e: Exception) {
+                        Toast.makeText(this@ListActivity, R.string.db_error, Toast.LENGTH_LONG).show()
+                    }
                 }
             }
         }

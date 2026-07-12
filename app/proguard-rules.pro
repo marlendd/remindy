@@ -4,3 +4,8 @@
 # R8-переименование. Подключить в buildTypes.release через proguardFiles при
 # включении минификации.
 -keep class org.tartarus.snowball.** { *; }
+
+# SQLCipher (net.zetetic): JNI-слой резолвит классы/методы по имени в рантайме –
+# сохраняем весь пакет, чтобы R8 не переименовал (актуально при minifyEnabled в release).
+-keep class net.zetetic.database.** { *; }
+-keep interface net.zetetic.database.** { *; }
