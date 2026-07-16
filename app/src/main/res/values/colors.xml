@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Фон окна = тёплый песочный «ground» Compose-темы: без вспышки чужого цвета при старте.
+         Тёмный вариант в values-night/colors.xml. -->
+    <color name="window_bg">#F5ECE0</color>
+</resources>

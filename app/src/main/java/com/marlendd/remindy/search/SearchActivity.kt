@@ -9,6 +9,8 @@ import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AppCompatActivity
+import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.WindowInsets
@@ -24,6 +26,8 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material3.Button
+import androidx.compose.material3.Icon
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -31,8 +35,10 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.TextStyle
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -47,6 +53,7 @@ import com.marlendd.remindy.security.LockSettings
 import com.marlendd.remindy.security.ReadGate
 import com.marlendd.remindy.security.UnlockActivity
 import com.marlendd.remindy.security.protectFromRecents
+import com.marlendd.remindy.ui.IconLabel
 import com.marlendd.remindy.ui.RecordRow
 import com.marlendd.remindy.ui.theme.RemindyTheme
 import com.marlendd.remindy.voice.VoskModelHolder
@@ -147,18 +154,23 @@ class SearchActivity : AppCompatActivity(), RecognitionListener {
         Column(
             Modifier
                 .fillMaxSize()
+                .background(MaterialTheme.colorScheme.background)
                 .windowInsetsPadding(WindowInsets.safeDrawing)
                 .padding(16.dp),
         ) {
             Text(
                 stringResource(R.string.title_search),
-                fontSize = 24.sp,
+                fontSize = 26.sp,
+                fontWeight = FontWeight.Bold,
                 modifier = Modifier.padding(bottom = 12.dp),
             )
             OutlinedTextField(
                 value = query,
                 onValueChange = { query = it },
                 singleLine = true,
+                leadingIcon = {
+                    Icon(painterResource(R.drawable.ic_search), contentDescription = null)
+                },
                 placeholder = { Text(stringResource(R.string.search_hint)) },
                 keyboardOptions = KeyboardOptions(
                     autoCorrectEnabled = false,
@@ -168,18 +180,25 @@ class SearchActivity : AppCompatActivity(), RecognitionListener {
                 textStyle = TextStyle(fontSize = 22.sp),
                 modifier = Modifier.fillMaxWidth(),
             )
-            Spacer(Modifier.size(8.dp))
+            Spacer(Modifier.size(10.dp))
             Button(
                 onClick = { toggleVoice() },
                 enabled = voiceEnabled,
                 modifier = Modifier.fillMaxWidth().heightIn(min = 72.dp),
             ) {
-                Text(stringResource(if (capturing) R.string.btn_stop else R.string.btn_find), fontSize = 24.sp)
+                IconLabel(
+                    R.drawable.ic_mic,
+                    stringResource(if (capturing) R.string.btn_stop else R.string.btn_find),
+                    24.sp,
+                )
             }
             Spacer(Modifier.size(12.dp))
-            Text(statusText, fontSize = 18.sp)
-            Spacer(Modifier.size(8.dp))
-            LazyColumn(Modifier.fillMaxSize()) {
+            Text(statusText, fontSize = 18.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            Spacer(Modifier.size(10.dp))
+            LazyColumn(
+                Modifier.fillMaxSize(),
+                verticalArrangement = Arrangement.spacedBy(10.dp),
+            ) {
                 items(results, key = { it.id }) { item ->
                     RecordRow(item = item, onClick = { onResultTap(item) })
                 }

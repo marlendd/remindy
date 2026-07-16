@@ -9,6 +9,7 @@ import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AppCompatActivity
 import androidx.biometric.BiometricManager
 import androidx.biometric.BiometricManager.Authenticators.BIOMETRIC_STRONG
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -17,9 +18,12 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.material3.Button
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material3.Card
+import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
@@ -121,26 +125,35 @@ class SettingsActivity : AppCompatActivity() {
                     modifier = Modifier.padding(bottom = 16.dp),
                 )
 
-                SettingSwitch(
-                    title = stringResource(R.string.settings_lock),
-                    summary = stringResource(R.string.settings_lock_summary),
-                    checked = lockEnabled,
-                    onChange = ::onLockToggled,
-                )
-
-                if (biometricSupported) {
-                    HorizontalDivider()
-                    SettingSwitch(
-                        title = stringResource(R.string.settings_biometric),
-                        summary = null,
-                        checked = biometricEnabled,
-                        onChange = ::onBiometricToggled,
-                    )
+                Card(
+                    shape = RoundedCornerShape(18.dp),
+                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+                    elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
+                    border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
+                    modifier = Modifier.fillMaxWidth(),
+                ) {
+                    Column {
+                        SettingSwitch(
+                            title = stringResource(R.string.settings_lock),
+                            summary = stringResource(R.string.settings_lock_summary),
+                            checked = lockEnabled,
+                            onChange = ::onLockToggled,
+                        )
+                        if (biometricSupported) {
+                            HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
+                            SettingSwitch(
+                                title = stringResource(R.string.settings_biometric),
+                                summary = null,
+                                checked = biometricEnabled,
+                                onChange = ::onBiometricToggled,
+                            )
+                        }
+                    }
                 }
 
                 if (lockEnabled) {
-                    Spacer(Modifier.size(24.dp))
-                    Button(
+                    Spacer(Modifier.size(20.dp))
+                    OutlinedButton(
                         onClick = ::onChangePin,
                         modifier = Modifier.fillMaxWidth().heightIn(min = 56.dp),
                     ) {
@@ -159,7 +172,7 @@ class SettingsActivity : AppCompatActivity() {
         onChange: (Boolean) -> Unit,
     ) {
         Row(
-            Modifier.fillMaxWidth().heightIn(min = 64.dp).padding(vertical = 8.dp),
+            Modifier.fillMaxWidth().heightIn(min = 64.dp).padding(horizontal = 16.dp, vertical = 10.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
             Column(Modifier.weight(1f).padding(end = 12.dp)) {

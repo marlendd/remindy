@@ -5,6 +5,8 @@ import android.widget.Toast
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.appcompat.app.AppCompatActivity
+import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -21,7 +23,9 @@ import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
@@ -34,6 +38,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.TextStyle
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.lifecycleScope
@@ -41,6 +46,7 @@ import com.marlendd.remindy.R
 import com.marlendd.remindy.data.RecordRepository
 import com.marlendd.remindy.data.RemindyDatabase
 import com.marlendd.remindy.security.protectFromRecents
+import com.marlendd.remindy.ui.IconLabel
 import com.marlendd.remindy.ui.theme.RemindyTheme
 import kotlinx.coroutines.launch
 
@@ -107,17 +113,23 @@ class ConfirmationActivity : AppCompatActivity() {
         Column(
             Modifier
                 .fillMaxSize()
+                .background(MaterialTheme.colorScheme.background)
                 .windowInsetsPadding(WindowInsets.safeDrawing)
                 .verticalScroll(rememberScrollState())
                 .padding(16.dp),
         ) {
             Text(
                 stringResource(if (editing) R.string.title_edit else R.string.title_confirm),
-                fontSize = 24.sp,
-                modifier = Modifier.padding(bottom = 16.dp),
+                fontSize = 26.sp,
+                fontWeight = FontWeight.Bold,
+                modifier = Modifier.padding(bottom = 20.dp),
             )
 
-            Text(stringResource(R.string.label_item), fontSize = 18.sp)
+            Text(
+                stringResource(R.string.label_item),
+                fontSize = 16.sp,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
             OutlinedTextField(
                 value = itemText,
                 onValueChange = { itemText = it },
@@ -129,7 +141,11 @@ class ConfirmationActivity : AppCompatActivity() {
             )
 
             Spacer(Modifier.size(16.dp))
-            Text(stringResource(R.string.label_location), fontSize = 18.sp)
+            Text(
+                stringResource(R.string.label_location),
+                fontSize = 16.sp,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
             OutlinedTextField(
                 value = locationText,
                 onValueChange = { locationText = it },
@@ -157,7 +173,7 @@ class ConfirmationActivity : AppCompatActivity() {
                 enabled = saveEnabled,
                 modifier = Modifier.fillMaxWidth().heightIn(min = 72.dp),
             ) {
-                Text(stringResource(R.string.btn_save), fontSize = 24.sp)
+                IconLabel(R.drawable.ic_check, stringResource(R.string.btn_save), 24.sp)
             }
             Spacer(Modifier.size(12.dp))
             OutlinedButton(
@@ -168,12 +184,16 @@ class ConfirmationActivity : AppCompatActivity() {
             }
             if (editing) {
                 Spacer(Modifier.size(12.dp))
-                TextButton(
+                OutlinedButton(
                     onClick = { showDeleteConfirm = true },
                     enabled = saveEnabled,
+                    colors = ButtonDefaults.outlinedButtonColors(
+                        contentColor = MaterialTheme.colorScheme.error,
+                    ),
+                    border = BorderStroke(1.5.dp, MaterialTheme.colorScheme.error.copy(alpha = 0.4f)),
                     modifier = Modifier.fillMaxWidth().heightIn(min = 56.dp),
                 ) {
-                    Text(stringResource(R.string.btn_delete), fontSize = 20.sp)
+                    IconLabel(R.drawable.ic_delete, stringResource(R.string.btn_delete), 20.sp, iconSize = 22.dp)
                 }
             }
         }

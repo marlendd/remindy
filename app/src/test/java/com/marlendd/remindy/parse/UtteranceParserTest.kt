@@ -81,4 +81,48 @@ class UtteranceParserTest {
         assertEquals("", r.item)
         assertEquals("", r.location)
     }
+
+    @Test fun stripsTrailingPlacementVerb() {
+        val r = parse("очки лежат на столе")
+        assertEquals("очки", r.item)
+        assertEquals("на столе", r.location)
+    }
+
+    @Test fun stripsTrailingVerbNaxoditsya() {
+        val r = parse("паспорт находится в ящике")
+        assertEquals("паспорт", r.item)
+        assertEquals("в ящике", r.location)
+    }
+
+    @Test fun stripsTrailingVerbSpryatany() {
+        val r = parse("деньги спрятаны под матрасом")
+        assertEquals("деньги", r.item)
+        assertEquals("под матрасом", r.location)
+    }
+
+    @Test fun stripsTrailingVerbForMultiWordItem() {
+        val r = parse("запасные ключи висят на крючке")
+        assertEquals("запасные ключи", r.item)
+        assertEquals("на крючке", r.location)
+    }
+
+    @Test fun stripsTrailingVerbWithoutPreposition() {
+        // «телефон лежит» без места: глагол отсекается, место пустое
+        val r = parse("телефон лежит")
+        assertEquals("телефон", r.item)
+        assertEquals("", r.location)
+    }
+
+    @Test fun verbOnlyItemIsNotEmptied() {
+        // глагол – единственное слово перед предлогом: не опустошаем предмет
+        val r = parse("лежат на столе")
+        assertEquals("лежат", r.item)
+        assertEquals("на столе", r.location)
+    }
+
+    @Test fun stripsTrailingVerbCaseInsensitive() {
+        val r = parse("Очки Лежат На Полке")
+        assertEquals("Очки", r.item)
+        assertEquals("На Полке", r.location)
+    }
 }

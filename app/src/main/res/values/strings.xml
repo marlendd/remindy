@@ -4,7 +4,7 @@
     <string name="btn_speak">Сказать</string>
     <string name="btn_stop">Стоп</string>
     <string name="status_loading_model">Загрузка модели…</string>
-    <string name="status_ready">Готово. Нажмите «Сказать» и говорите.</string>
+    <string name="main_hint">Скажите, что и где вы положили</string>
     <string name="status_listening">Слушаю…</string>
     <string name="status_model_error">Ошибка загрузки модели: %1$s</string>
     <string name="status_error">Ошибка: %1$s</string>
@@ -51,7 +51,7 @@
     <string name="unlock_biometric_subtitle">Приложите палец или введите код приложения</string>
     <string name="unlock_use_pin">Ввести код</string>
     <string name="btn_ok">ОК</string>
-    <string name="btn_backspace">⌫</string>
+    <string name="btn_backspace">Стереть</string>
     <string name="btn_biometric">Отпечаток</string>
     <string name="db_error">Не удалось открыть данные</string>
 
@@ -65,8 +65,6 @@
     <string name="mic_denied_settings">Доступ к микрофону запрещён. Включите его в настройках приложения.</string>
     <string name="btn_allow">Разрешить</string>
     <string name="btn_open_settings">Открыть настройки</string>
-    <!-- Список: undo при удалении -->
-    <string name="snackbar_undo">Отмена</string>
     <!-- Правка записи -->
     <string name="title_edit">Изменить запись</string>
     <string name="btn_delete">Удалить</string>

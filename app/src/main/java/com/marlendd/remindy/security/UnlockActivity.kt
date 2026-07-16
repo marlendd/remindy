@@ -8,12 +8,15 @@ import androidx.appcompat.app.AppCompatActivity
 import androidx.biometric.BiometricManager
 import androidx.biometric.BiometricManager.Authenticators.BIOMETRIC_STRONG
 import androidx.biometric.BiometricPrompt
+import androidx.compose.foundation.background
+import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.WindowInsets
-import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
@@ -21,7 +24,8 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.safeDrawing
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.windowInsetsPadding
-import androidx.compose.material3.Button
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Text
@@ -32,11 +36,14 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.alpha
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
-import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.marlendd.remindy.ui.IconLabel
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.lifecycleScope
 import com.marlendd.remindy.R
@@ -100,72 +107,134 @@ class UnlockActivity : AppCompatActivity() {
         Column(
             Modifier
                 .fillMaxSize()
+                .background(MaterialTheme.colorScheme.background)
                 .windowInsetsPadding(WindowInsets.safeDrawing)
-                .padding(16.dp),
+                .padding(horizontal = 24.dp, vertical = 16.dp),
             horizontalAlignment = Alignment.CenterHorizontally,
         ) {
             Text(
                 titleText,
                 fontSize = 22.sp,
                 textAlign = TextAlign.Center,
-                modifier = Modifier.fillMaxWidth().padding(top = 16.dp),
+                modifier = Modifier.fillMaxWidth().padding(top = 24.dp),
             )
-            Text(
-                "•".repeat(dotsCount),
-                fontSize = 36.sp,
-                fontWeight = FontWeight.Bold,
-                textAlign = TextAlign.Center,
-                modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp).padding(top = 16.dp),
-            )
+            Spacer(Modifier.size(28.dp))
+            // Точки-индикатор: по кружку на введённую цифру (длина кода 4–8)
+            Row(
+                horizontalArrangement = Arrangement.spacedBy(14.dp),
+                modifier = Modifier.heightIn(min = 20.dp),
+            ) {
+                repeat(dotsCount) {
+                    Box(
+                        Modifier
+                            .size(15.dp)
+                            .clip(CircleShape)
+                            .background(MaterialTheme.colorScheme.primary),
+                    )
+                }
+            }
             Text(
                 errorText,
                 fontSize = 18.sp,
                 color = MaterialTheme.colorScheme.error,
                 textAlign = TextAlign.Center,
-                modifier = Modifier.fillMaxWidth().heightIn(min = 28.dp),
+                modifier = Modifier.fillMaxWidth().heightIn(min = 28.dp).padding(top = 16.dp),
             )
 
-            Column(Modifier.weight(1f).fillMaxWidth()) {
-                KeypadRow("1", "2", "3")
-                KeypadRow("4", "5", "6")
-                KeypadRow("7", "8", "9")
-                Row(Modifier.weight(1f).fillMaxWidth()) {
-                    KeypadKey(stringResource(R.string.btn_backspace), Modifier.weight(1f)) { onBackspace() }
-                    KeypadKey("0", Modifier.weight(1f)) { onDigit(0) }
-                    KeypadKey(stringResource(R.string.btn_ok), Modifier.weight(1f)) { onSubmit() }
+            Spacer(Modifier.weight(1f))
+
+            // Компактный круглый пад по центру снизу (не растянут на весь экран).
+            // alpha гасит пад во время проверки/блокировки (keypadEnabled=false).
+            Column(
+                horizontalAlignment = Alignment.CenterHorizontally,
+                modifier = Modifier.alpha(if (keypadEnabled) 1f else 0.45f),
+            ) {
+                KeypadRow(1, 2, 3)
+                Spacer(Modifier.size(16.dp))
+                KeypadRow(4, 5, 6)
+                Spacer(Modifier.size(16.dp))
+                KeypadRow(7, 8, 9)
+                Spacer(Modifier.size(16.dp))
+                Row(horizontalArrangement = Arrangement.spacedBy(16.dp)) {
+                    BackspaceKey()
+                    DigitKey(0)
+                    OkKey()
                 }
             }
 
+            Spacer(Modifier.weight(1f))
+
             if (showBiometric) {
-                Spacer(Modifier.size(8.dp))
                 OutlinedButton(
                     onClick = { showBiometricPrompt() },
                     modifier = Modifier.fillMaxWidth().heightIn(min = 56.dp),
                 ) {
-                    Text(stringResource(R.string.btn_biometric), fontSize = 20.sp)
+                    IconLabel(R.drawable.ic_fingerprint, stringResource(R.string.btn_biometric), 20.sp, iconSize = 22.dp)
                 }
             }
         }
     }
 
-    // Extension на ColumnScope, чтобы Modifier.weight(1f) у Row резолвился (равные по высоте ряды)
     @Composable
-    private fun ColumnScope.KeypadRow(a: String, b: String, c: String) {
-        Row(Modifier.weight(1f).fillMaxWidth()) {
-            KeypadKey(a, Modifier.weight(1f)) { onDigit(a.toInt()) }
-            KeypadKey(b, Modifier.weight(1f)) { onDigit(b.toInt()) }
-            KeypadKey(c, Modifier.weight(1f)) { onDigit(c.toInt()) }
+    private fun KeypadRow(a: Int, b: Int, c: Int) {
+        Row(horizontalArrangement = Arrangement.spacedBy(16.dp)) {
+            DigitKey(a)
+            DigitKey(b)
+            DigitKey(c)
+        }
+    }
+
+    private val KEY_SIZE = 72.dp
+
+    @Composable
+    private fun DigitKey(n: Int) {
+        Box(
+            Modifier
+                .size(KEY_SIZE)
+                .clip(CircleShape)
+                .background(MaterialTheme.colorScheme.surfaceVariant)
+                .border(1.dp, MaterialTheme.colorScheme.outlineVariant, CircleShape)
+                .clickable(enabled = keypadEnabled) { onDigit(n) },
+            contentAlignment = Alignment.Center,
+        ) {
+            Text("$n", fontSize = 28.sp, color = MaterialTheme.colorScheme.onSurface)
         }
     }
 
     @Composable
-    private fun KeypadKey(label: String, modifier: Modifier, onClick: () -> Unit) {
-        Button(
-            onClick = onClick,
-            enabled = keypadEnabled,
-            modifier = modifier.fillMaxHeight().heightIn(min = 56.dp).padding(4.dp),
+    private fun OkKey() {
+        Box(
+            Modifier
+                .size(KEY_SIZE)
+                .clip(CircleShape)
+                .background(MaterialTheme.colorScheme.primary)
+                .clickable(enabled = keypadEnabled) { onSubmit() },
+            contentAlignment = Alignment.Center,
         ) {
-            Text(label, fontSize = 26.sp)
+            Icon(
+                painterResource(R.drawable.ic_check),
+                contentDescription = stringResource(R.string.btn_ok),
+                tint = MaterialTheme.colorScheme.onPrimary,
+                modifier = Modifier.size(30.dp),
+            )
+        }
+    }
+
+    @Composable
+    private fun BackspaceKey() {
+        Box(
+            Modifier
+                .size(KEY_SIZE)
+                .clip(CircleShape)
+                .clickable(enabled = keypadEnabled) { onBackspace() },
+            contentAlignment = Alignment.Center,
+        ) {
+            Icon(
+                painterResource(R.drawable.ic_backspace),
+                contentDescription = stringResource(R.string.btn_backspace),
+                tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.size(28.dp),
+            )
         }
     }
 

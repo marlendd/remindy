@@ -10,6 +10,7 @@ import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AppCompatActivity
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -19,9 +20,14 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.FilledTonalButton
+import androidx.compose.material3.Icon
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -31,6 +37,8 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontStyle
 import androidx.compose.ui.text.style.TextAlign
@@ -43,6 +51,7 @@ import com.marlendd.remindy.parse.UtteranceParser
 import com.marlendd.remindy.record.ConfirmationActivity
 import com.marlendd.remindy.search.SearchActivity
 import com.marlendd.remindy.security.SettingsActivity
+import com.marlendd.remindy.ui.IconLabel
 import com.marlendd.remindy.ui.theme.RemindyTheme
 import com.marlendd.remindy.voice.VoskModelHolder
 import kotlinx.coroutines.launch
@@ -126,10 +135,20 @@ class MainActivity : AppCompatActivity(), RecognitionListener {
                 Modifier
                     .fillMaxSize()
                     .padding(inner)
-                    .padding(16.dp),
+                    .padding(horizontal = 20.dp, vertical = 16.dp),
             ) {
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Text(status, fontSize = 18.sp, modifier = Modifier.weight(1f))
+                // Статус-строка только для реальных состояний (загрузка/«Слушаю…»/ошибка);
+                // в покое пусто – никакого «Готово», подсказка живёт по центру.
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    modifier = Modifier.heightIn(min = 26.dp),
+                ) {
+                    Text(
+                        status,
+                        fontSize = 18.sp,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.weight(1f),
+                    )
                     if (modelLoading) {
                         CircularProgressIndicator(
                             Modifier.padding(start = 12.dp).size(24.dp),
@@ -142,12 +161,40 @@ class MainActivity : AppCompatActivity(), RecognitionListener {
                     Modifier.weight(1f).fillMaxWidth(),
                     contentAlignment = Alignment.Center,
                 ) {
-                    Text(
-                        partial,
-                        fontSize = 22.sp,
-                        fontStyle = FontStyle.Italic,
-                        textAlign = TextAlign.Center,
-                    )
+                    if (partial.isNotBlank()) {
+                        // Идёт распознавание – показываем живой текст
+                        Text(
+                            partial,
+                            fontSize = 24.sp,
+                            fontStyle = FontStyle.Italic,
+                            textAlign = TextAlign.Center,
+                        )
+                    } else {
+                        // Покой – иконка микрофона и мягкая подсказка вместо статусной строки
+                        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                            Box(
+                                Modifier
+                                    .size(96.dp)
+                                    .clip(CircleShape)
+                                    .background(MaterialTheme.colorScheme.primaryContainer),
+                                contentAlignment = Alignment.Center,
+                            ) {
+                                Icon(
+                                    painterResource(R.drawable.ic_mic),
+                                    contentDescription = null,
+                                    tint = MaterialTheme.colorScheme.onPrimaryContainer,
+                                    modifier = Modifier.size(44.dp),
+                                )
+                            }
+                            Spacer(Modifier.size(16.dp))
+                            Text(
+                                stringResource(R.string.main_hint),
+                                fontSize = 18.sp,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                textAlign = TextAlign.Center,
+                            )
+                        }
+                    }
                 }
 
                 Button(
@@ -155,29 +202,37 @@ class MainActivity : AppCompatActivity(), RecognitionListener {
                     enabled = speakEnabled,
                     modifier = Modifier.fillMaxWidth().heightIn(min = 80.dp),
                 ) {
-                    Text(stringResource(if (capturing) R.string.btn_stop else R.string.btn_speak), fontSize = 26.sp)
+                    IconLabel(
+                        R.drawable.ic_mic,
+                        stringResource(if (capturing) R.string.btn_stop else R.string.btn_speak),
+                        26.sp,
+                    )
                 }
                 Spacer(Modifier.size(12.dp))
-                Button(
+                FilledTonalButton(
                     onClick = { startActivity(Intent(this@MainActivity, SearchActivity::class.java)) },
                     modifier = Modifier.fillMaxWidth().heightIn(min = 72.dp),
                 ) {
-                    Text(stringResource(R.string.btn_find), fontSize = 24.sp)
+                    IconLabel(R.drawable.ic_search, stringResource(R.string.btn_find), 24.sp)
                 }
                 Spacer(Modifier.size(12.dp))
-                Button(
+                FilledTonalButton(
                     onClick = { startActivity(Intent(this@MainActivity, ListActivity::class.java)) },
                     enabled = listEnabled,
-                    modifier = Modifier.fillMaxWidth().heightIn(min = 56.dp),
+                    colors = ButtonDefaults.filledTonalButtonColors(
+                        containerColor = MaterialTheme.colorScheme.primaryContainer,
+                        contentColor = MaterialTheme.colorScheme.onPrimaryContainer,
+                    ),
+                    modifier = Modifier.fillMaxWidth().heightIn(min = 64.dp),
                 ) {
-                    Text(stringResource(R.string.btn_list), fontSize = 20.sp)
+                    IconLabel(R.drawable.ic_list, stringResource(R.string.btn_list), 21.sp, iconSize = 24.dp)
                 }
                 Spacer(Modifier.size(8.dp))
                 TextButton(
                     onClick = { startActivity(Intent(this@MainActivity, SettingsActivity::class.java)) },
                     modifier = Modifier.align(Alignment.CenterHorizontally),
                 ) {
-                    Text(stringResource(R.string.btn_settings), fontSize = 18.sp)
+                    IconLabel(R.drawable.ic_settings, stringResource(R.string.btn_settings), 17.sp, iconSize = 20.dp)
                 }
             }
         }
@@ -258,7 +313,7 @@ class MainActivity : AppCompatActivity(), RecognitionListener {
             try {
                 model = VoskModelHolder.get(this@MainActivity) // общая на процесс модель
                 speakEnabled = true
-                status = getString(R.string.status_ready)
+                status = "" // покой: подсказка живёт по центру, статус-строка пустая
             } catch (e: Exception) {
                 speakEnabled = true // тап повторит загрузку
                 status = getString(R.string.status_model_error, e.message)
@@ -329,7 +384,7 @@ class MainActivity : AppCompatActivity(), RecognitionListener {
     private fun resetIdleUi() {
         listEnabled = true
         partial = ""
-        status = getString(R.string.status_ready)
+        status = "" // покой: без «Готово», подсказка по центру
     }
 
     // --- RecognitionListener: колбэки в main thread ----------------------------

@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Тёмный «ground» тёплой палитры (совпадает с background Compose-темы). -->
+    <color name="window_bg">#17110C</color>
+</resources>

@@ -13,6 +13,10 @@ data class ParsedRecord(val item: String, val location: String)
  * Предлоги матчатся как ЦЕЛЫЕ слова, иначе «зарядка на столе» разделилось бы по
  * «за» внутри слова «зарядка».
  *
+ * Глаголы-связки места («очки ЛЕЖАТ на столе», «паспорт НАХОДИТСЯ в ящике»)
+ * человек проговаривает естественно, но в названии предмета они лишние –
+ * хвостовой такой глагол отсекаем, оставляя чистый предмет («очки», «паспорт»).
+ *
  * Если предлога нет или он стоит первым словом (предмет вышел бы пустым), вся
  * фраза уходит в предмет, место пустое. Предлог без слов после него местом не
  * считается.
@@ -22,6 +26,21 @@ object UtteranceParser {
     // «во»/«подо» – озвонченные формы «в»/«под» (Vosk их так и выдаёт: «во втором ящике»)
     private val PREPOSITIONS = setOf("в", "во", "на", "под", "подо", "за")
 
+    // Глаголы-связки/состояния места, которыми описывают, ГДЕ вещь: отсекаем их из хвоста
+    // предмета. Ни одно из слов не является названием предмета, ложных срабатываний нет.
+    private val PLACEMENT_VERBS = setOf(
+        "лежит", "лежат", "лежал", "лежала", "лежало", "лежали",
+        "находится", "находятся",
+        "стоит", "стоят", "стоял", "стояла", "стояло", "стояли",
+        "висит", "висят", "висел", "висела", "висело", "висели",
+        "спрятан", "спрятана", "спрятано", "спрятаны",
+        "убран", "убрана", "убрано", "убраны",
+        "оставлен", "оставлена", "оставлено", "оставлены",
+        "положен", "положена", "положено", "положены",
+        "поставлен", "поставлена", "поставлено", "поставлены",
+        "хранится", "хранятся",
+    )
+
     fun parse(raw: String): ParsedRecord {
         val tokens = raw.trim().split(WHITESPACE).filter { it.isNotEmpty() }
         if (tokens.isEmpty()) return ParsedRecord("", "")
@@ -29,10 +48,10 @@ object UtteranceParser {
         val prepositionIndex = tokens.indexOfFirst { it.lowercase() in PREPOSITIONS }
         // -1 (предлога нет) или 0 (предлог первый → предмет пуст) → вся фраза в предмет
         if (prepositionIndex <= 0) {
-            return ParsedRecord(tokens.joinToString(" "), "")
+            return ParsedRecord(stripTrailingVerbs(tokens), "")
         }
 
-        val item = tokens.subList(0, prepositionIndex).joinToString(" ")
+        val item = stripTrailingVerbs(tokens.subList(0, prepositionIndex))
         // место = предлог и всё после него; если после предлога пусто – места нет
         val location = if (prepositionIndex < tokens.lastIndex) {
             tokens.subList(prepositionIndex, tokens.size).joinToString(" ")
@@ -40,6 +59,16 @@ object UtteranceParser {
             ""
         }
         return ParsedRecord(item, location)
+    }
+
+    // Отбрасывает хвостовые глаголы-связки места, но никогда не опустошает предмет
+    // (если глагол – единственное слово, оставляем его как есть – данные не теряем).
+    private fun stripTrailingVerbs(tokens: List<String>): String {
+        var end = tokens.size
+        while (end > 1 && tokens[end - 1].lowercase() in PLACEMENT_VERBS) {
+            end--
+        }
+        return tokens.subList(0, end).joinToString(" ")
     }
 
     private val WHITESPACE = Regex("\\s+")
