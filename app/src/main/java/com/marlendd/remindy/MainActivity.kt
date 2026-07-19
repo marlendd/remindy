@@ -52,6 +52,7 @@ import com.marlendd.remindy.record.ConfirmationActivity
 import com.marlendd.remindy.search.SearchActivity
 import com.marlendd.remindy.security.SettingsActivity
 import com.marlendd.remindy.ui.IconLabel
+import com.marlendd.remindy.ui.OnboardingPrefs
 import com.marlendd.remindy.ui.UiScale
 import com.marlendd.remindy.ui.theme.RemindyTheme
 import com.marlendd.remindy.voice.VoskModelHolder
@@ -96,6 +97,14 @@ class MainActivity : AppCompatActivity(), RecognitionListener {
             if (!granted) handleMicDenied()
         }
 
+    // Первый запуск: сперва онбординг, и только по возврату просим микрофон (иначе системный
+    // диалог разрешения выскочил бы поверх подсказки). Заодно помечаем онбординг показанным.
+    private val onboardingLauncher =
+        registerForActivityResult(ActivityResultContracts.StartActivityForResult()) {
+            OnboardingPrefs.setSeen(this)
+            requestMicIfNeeded()
+        }
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
@@ -103,10 +112,17 @@ class MainActivity : AppCompatActivity(), RecognitionListener {
         setContent { RemindyTheme { MainScreen() } }
 
         LibVosk.setLogLevel(LogLevel.INFO)
-        if (!hasMicPermission()) {
-            micPermission.launch(Manifest.permission.RECORD_AUDIO)
+        // Первый запуск → онбординг (микрофон отложен до его закрытия); иначе сразу микрофон.
+        if (OnboardingPrefs.isSeen(this)) {
+            requestMicIfNeeded()
+        } else {
+            onboardingLauncher.launch(Intent(this, OnboardingActivity::class.java))
         }
         initModel()
+    }
+
+    private fun requestMicIfNeeded() {
+        if (!hasMicPermission()) micPermission.launch(Manifest.permission.RECORD_AUDIO)
     }
 
     override fun onResume() {

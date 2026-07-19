@@ -53,6 +53,7 @@ import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.lifecycleScope
+import com.marlendd.remindy.OnboardingActivity
 import com.marlendd.remindy.R
 import com.marlendd.remindy.data.BackupCodec
 import com.marlendd.remindy.data.BackupFormatException
@@ -288,6 +289,15 @@ class SettingsActivity : AppCompatActivity() {
                 ScaleOption(stringResource(R.string.scale_large), UiScale.LARGE)
                 Spacer(Modifier.size(8.dp))
                 ScaleOption(stringResource(R.string.scale_xlarge), UiScale.XLARGE)
+
+                // Повторно открыть подсказку «как пользоваться» (тот же экран, что на первом запуске)
+                Spacer(Modifier.size(28.dp))
+                OutlinedButton(
+                    onClick = { startActivity(Intent(this@SettingsActivity, OnboardingActivity::class.java)) },
+                    modifier = Modifier.fillMaxWidth().heightIn(min = 56.dp),
+                ) {
+                    Text(stringResource(R.string.settings_help), fontSize = 18.sp)
+                }
 
                 if (showExportPassword) {
                     PasswordDialog(

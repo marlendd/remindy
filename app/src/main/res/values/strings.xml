@@ -107,4 +107,12 @@
     <string name="backup_import_bad_file">Это не файл резервной копии</string>
     <string name="backup_import_empty">В копии нет записей — восстанавливать нечего</string>
     <string name="backup_import_err">Не удалось восстановить</string>
+    <!-- Онбординг (подсказка при первом запуске + «Как пользоваться» в настройках) -->
+    <string name="onboarding_intro">Запоминайте голосом, куда кладёте вещи – и находите их потом.</string>
+    <string name="onboarding_step_speak">Нажмите «Сказать» и назовите вещь и место. Например: «очки на столе».</string>
+    <string name="onboarding_step_find">Нажмите «Найти» и спросите: «где очки».</string>
+    <string name="onboarding_step_list">«Список» покажет всё, что вы записали.</string>
+    <string name="onboarding_offline">Всё хранится только на телефоне, без интернета.</string>
+    <string name="onboarding_done">Понятно</string>
+    <string name="settings_help">Как пользоваться</string>
 </resources>
