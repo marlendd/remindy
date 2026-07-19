@@ -107,4 +107,41 @@ class RecordRepository(private val db: RemindyDatabase) {
     }
 
     suspend fun delete(item: Item) = itemDao.delete(item)
+
+    // --- Резервная копия ------------------------------------------------------
+
+    /** Все записи для экспорта в бэкап (только предмет/место/даты). */
+    suspend fun exportRecords(): List<BackupRecord> =
+        itemDao.getAll().map { BackupRecord(it.name, it.location, it.createdAt, it.updatedAt) }
+
+    /**
+     * Полная замена записей при восстановлении из бэкапа (решение пользователя: replace-all).
+     * Атомарно: чистим synonyms/location_history/items и вставляем заново. Тройную очистку
+     * делаем явно (не полагаемся только на FK-каскад) – после восстановления «только записей»
+     * производных данных быть не должно. name_norm пересчитываем через нормализатор; пустые
+     * пропускаем. Возвращает число реально вставленных записей.
+     */
+    suspend fun replaceAllRecords(records: List<BackupRecord>): Int {
+        var inserted = 0
+        db.withTransaction {
+            synonymDao.deleteAll()
+            historyDao.deleteAll()
+            itemDao.deleteAll()
+            for (r in records) {
+                val nameNorm = TextNormalizer.normalize(r.name)
+                if (nameNorm.isBlank()) continue
+                val id = itemDao.insertIgnore(
+                    Item(
+                        name = r.name,
+                        nameNorm = nameNorm,
+                        location = r.location,
+                        createdAt = r.createdAt,
+                        updatedAt = r.updatedAt,
+                    ),
+                )
+                if (id != -1L) inserted++
+            }
+        }
+        return inserted
+    }
 }

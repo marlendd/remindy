@@ -28,11 +28,19 @@ interface ItemDao {
     @Insert
     suspend fun insert(item: Item): Long
 
+    // Восстановление из бэкапа: если name_norm совпал (UNIQUE) – не падаем, пропускаем
+    // (возвращает -1). В нашем экспорте коллизий нет, это страховка от битого файла.
+    @Insert(onConflict = OnConflictStrategy.IGNORE)
+    suspend fun insertIgnore(item: Item): Long
+
     @Update
     suspend fun update(item: Item)
 
     @Delete
     suspend fun delete(item: Item)
+
+    @Query("DELETE FROM items")
+    suspend fun deleteAll()
 }
 
 @Dao
@@ -43,6 +51,9 @@ interface LocationHistoryDao {
 
     @Query("SELECT * FROM location_history WHERE item_id = :itemId ORDER BY replaced_at DESC")
     suspend fun forItem(itemId: Long): List<LocationHistory>
+
+    @Query("DELETE FROM location_history")
+    suspend fun deleteAll()
 }
 
 @Dao
@@ -61,4 +72,7 @@ interface SynonymDao {
 
     @Query("SELECT * FROM synonyms WHERE item_id = :itemId")
     suspend fun forItem(itemId: Long): List<Synonym>
+
+    @Query("DELETE FROM synonyms")
+    suspend fun deleteAll()
 }
