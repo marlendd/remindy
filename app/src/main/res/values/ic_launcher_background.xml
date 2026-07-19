@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Фон adaptive-иконки: тёплый песок (глубже window_bg, чтобы терракотовый
+         пин читался). Фиксированный, не зависит от темы – так у adaptive-иконок. -->
+    <color name="ic_launcher_background">#EADDD1</color>
+</resources>

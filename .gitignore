@@ -8,3 +8,8 @@ local.properties
 .DS_Store
 captures/
 tmp/
+
+# Подпись релиза – секреты, не в git (шаблон: keystore.properties.example)
+keystore.properties
+*.jks
+*.keystore

@@ -1,5 +1,6 @@
 import java.net.URI
 import java.security.MessageDigest
+import java.util.Properties
 import java.util.UUID
 import javax.inject.Inject
 
@@ -17,6 +18,13 @@ room {
     schemaDirectory("$projectDir/schemas")
 }
 
+// Секреты подписи релиза – из gitignored keystore.properties (шаблон: keystore.properties.example).
+// Если файла нет (CI/чужая машина без ключа) – release собирается неподписанным, а не падает.
+val keystorePropsFile = rootProject.file("keystore.properties")
+val keystoreProps = Properties().apply {
+    if (keystorePropsFile.exists()) keystorePropsFile.inputStream().use { load(it) }
+}
+
 android {
     namespace = "com.marlendd.remindy"
     // Фаза 4: Compose-стек 2026 (lifecycle-runtime-compose 2.11.0) требует compileSdk 37.
@@ -28,9 +36,33 @@ android {
         minSdk = 26
         targetSdk = 36
         versionCode = 1
-        versionName = "0.1.0"
-        // Спайк ставится на один физический arm64-телефон; режет нативные библиотеки в APK
+        versionName = "1.0.0" // первый релиз
+        // Релиз идёт APK-ом вручную на arm64-телефон; режет нативные либы в APK под одну ABI
         ndk { abiFilters += "arm64-v8a" }
+    }
+
+    signingConfigs {
+        create("release") {
+            if (keystorePropsFile.exists()) {
+                storeFile = rootProject.file(keystoreProps.getProperty("storeFile"))
+                storePassword = keystoreProps.getProperty("storePassword")
+                keyAlias = keystoreProps.getProperty("keyAlias")
+                keyPassword = keystoreProps.getProperty("keyPassword")
+            }
+        }
+    }
+
+    buildTypes {
+        release {
+            // R8 для v1 выключен (решение): нативная рефлексия Vosk/JNA/SQLCipher/Snowball
+            // рискованна, а APK и так < лимита. proguard-rules.pro готов на будущее.
+            isMinifyEnabled = false
+            proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
+            // Подписываем релизным ключом только если секреты на месте; иначе неподписанный APK
+            if (keystorePropsFile.exists()) {
+                signingConfig = signingConfigs.getByName("release")
+            }
+        }
     }
 
     compileOptions {
