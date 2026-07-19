@@ -78,4 +78,9 @@
     <string name="settings_biometric">Вход по отпечатку</string>
     <string name="settings_change_pin">Сменить код</string>
     <string name="settings_pin_changed">Код изменён</string>
+    <!-- Масштаб интерфейса (доступность) -->
+    <string name="settings_scale">Размер текста и кнопок</string>
+    <string name="scale_normal">Обычный</string>
+    <string name="scale_large">Крупный</string>
+    <string name="scale_xlarge">Очень крупный</string>
 </resources>

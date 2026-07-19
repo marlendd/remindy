@@ -55,8 +55,10 @@ import com.marlendd.remindy.security.UnlockActivity
 import com.marlendd.remindy.security.protectFromRecents
 import com.marlendd.remindy.ui.IconLabel
 import com.marlendd.remindy.ui.RecordRow
+import com.marlendd.remindy.ui.UiScale
 import com.marlendd.remindy.ui.theme.RemindyTheme
 import com.marlendd.remindy.voice.VoskModelHolder
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.launch
 import org.json.JSONObject
 import org.vosk.Model
@@ -112,6 +114,7 @@ class SearchActivity : AppCompatActivity(), RecognitionListener {
         super.onCreate(savedInstanceState)
         protectFromRecents() // результаты поиска – не в снимок «недавних» (мимо гейта)
         enableEdgeToEdge()
+        UiScale.ensureLoaded(this)
         statusText = getString(R.string.search_prompt)
         setContent { RemindyTheme { SearchScreen() } }
 
@@ -123,6 +126,8 @@ class SearchActivity : AppCompatActivity(), RecognitionListener {
         lifecycleScope.launch {
             val repo = try {
                 RecordRepository(RemindyDatabase.getAsync(this@SearchActivity))
+            } catch (e: CancellationException) {
+                throw e
             } catch (e: Exception) {
                 Toast.makeText(this@SearchActivity, R.string.db_error, Toast.LENGTH_LONG).show()
                 finish()
@@ -283,6 +288,8 @@ class SearchActivity : AppCompatActivity(), RecognitionListener {
                     results = allItems // уже отсортированы по updated_at DESC
                     statusText = getString(R.string.search_none)
                 }
+            } catch (e: CancellationException) {
+                throw e // выход с экрана во время поиска – не ошибка
             } catch (e: Exception) {
                 // Ошибка БД (переполнен диск/повреждение) – показываем, а не падаем
                 statusText = getString(R.string.status_error, e.message)

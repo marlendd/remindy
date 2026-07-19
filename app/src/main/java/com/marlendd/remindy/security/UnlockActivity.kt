@@ -13,6 +13,7 @@ import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -41,13 +42,16 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.marlendd.remindy.ui.IconLabel
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.lifecycleScope
 import com.marlendd.remindy.R
+import com.marlendd.remindy.ui.UiScale
 import com.marlendd.remindy.ui.theme.RemindyTheme
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -78,6 +82,7 @@ class UnlockActivity : AppCompatActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
+        UiScale.ensureLoaded(this)
         appPin = AppPin(this)
         forceSetup = intent.getBooleanExtra(EXTRA_FORCE_SETUP, false)
 
@@ -143,22 +148,29 @@ class UnlockActivity : AppCompatActivity() {
 
             Spacer(Modifier.weight(1f))
 
-            // Компактный круглый пад по центру снизу (не растянут на весь экран).
+            // Компактный круглый пад по центру снизу. Размер клавиш адаптируется к ширине,
+            // чтобы при большом масштабе (UiScale) пад не вылезал за экран.
             // alpha гасит пад во время проверки/блокировки (keypadEnabled=false).
-            Column(
-                horizontalAlignment = Alignment.CenterHorizontally,
-                modifier = Modifier.alpha(if (keypadEnabled) 1f else 0.45f),
+            BoxWithConstraints(
+                Modifier
+                    .fillMaxWidth()
+                    .alpha(if (keypadEnabled) 1f else 0.45f),
+                contentAlignment = Alignment.Center,
             ) {
-                KeypadRow(1, 2, 3)
-                Spacer(Modifier.size(16.dp))
-                KeypadRow(4, 5, 6)
-                Spacer(Modifier.size(16.dp))
-                KeypadRow(7, 8, 9)
-                Spacer(Modifier.size(16.dp))
-                Row(horizontalArrangement = Arrangement.spacedBy(16.dp)) {
-                    BackspaceKey()
-                    DigitKey(0)
-                    OkKey()
+                val gap = 16.dp
+                val keySize = minOf(72.dp, (maxWidth - gap * 2) / 3)
+                Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                    KeypadRow(1, 2, 3, keySize, gap)
+                    Spacer(Modifier.size(gap))
+                    KeypadRow(4, 5, 6, keySize, gap)
+                    Spacer(Modifier.size(gap))
+                    KeypadRow(7, 8, 9, keySize, gap)
+                    Spacer(Modifier.size(gap))
+                    Row(horizontalArrangement = Arrangement.spacedBy(gap)) {
+                        BackspaceKey(keySize)
+                        DigitKey(0, keySize)
+                        OkKey(keySize)
+                    }
                 }
             }
 
@@ -176,21 +188,19 @@ class UnlockActivity : AppCompatActivity() {
     }
 
     @Composable
-    private fun KeypadRow(a: Int, b: Int, c: Int) {
-        Row(horizontalArrangement = Arrangement.spacedBy(16.dp)) {
-            DigitKey(a)
-            DigitKey(b)
-            DigitKey(c)
+    private fun KeypadRow(a: Int, b: Int, c: Int, keySize: Dp, gap: Dp) {
+        Row(horizontalArrangement = Arrangement.spacedBy(gap)) {
+            DigitKey(a, keySize)
+            DigitKey(b, keySize)
+            DigitKey(c, keySize)
         }
     }
 
-    private val KEY_SIZE = 72.dp
-
     @Composable
-    private fun DigitKey(n: Int) {
+    private fun DigitKey(n: Int, keySize: Dp) {
         Box(
             Modifier
-                .size(KEY_SIZE)
+                .size(keySize)
                 .clip(CircleShape)
                 .background(MaterialTheme.colorScheme.surfaceVariant)
                 .border(1.dp, MaterialTheme.colorScheme.outlineVariant, CircleShape)
@@ -202,10 +212,10 @@ class UnlockActivity : AppCompatActivity() {
     }
 
     @Composable
-    private fun OkKey() {
+    private fun OkKey(keySize: Dp) {
         Box(
             Modifier
-                .size(KEY_SIZE)
+                .size(keySize)
                 .clip(CircleShape)
                 .background(MaterialTheme.colorScheme.primary)
                 .clickable(enabled = keypadEnabled) { onSubmit() },
@@ -221,10 +231,10 @@ class UnlockActivity : AppCompatActivity() {
     }
 
     @Composable
-    private fun BackspaceKey() {
+    private fun BackspaceKey(keySize: Dp) {
         Box(
             Modifier
-                .size(KEY_SIZE)
+                .size(keySize)
                 .clip(CircleShape)
                 .clickable(enabled = keypadEnabled) { onBackspace() },
             contentAlignment = Alignment.Center,
@@ -275,6 +285,8 @@ class UnlockActivity : AppCompatActivity() {
             lifecycleScope.launch {
                 try {
                     withContext(Dispatchers.IO) { appPin.setPin(pin.toCharArray()) }
+                } catch (e: CancellationException) {
+                    throw e
                 } catch (e: Exception) {
                     keypadEnabled = true
                     setupFirst = null
@@ -298,6 +310,8 @@ class UnlockActivity : AppCompatActivity() {
         lifecycleScope.launch {
             val res = try {
                 withContext(Dispatchers.IO) { appPin.verify(pin.toCharArray()) }
+            } catch (e: CancellationException) {
+                throw e
             } catch (e: Exception) {
                 keypadEnabled = true
                 resetInput()

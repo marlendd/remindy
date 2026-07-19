@@ -43,6 +43,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.lifecycleScope
 import com.marlendd.remindy.R
+import kotlinx.coroutines.CancellationException
 import com.marlendd.remindy.data.Item
 import com.marlendd.remindy.data.RecordRepository
 import com.marlendd.remindy.data.RemindyDatabase
@@ -53,6 +54,7 @@ import com.marlendd.remindy.security.UnlockActivity
 import com.marlendd.remindy.security.protectFromRecents
 import com.marlendd.remindy.ui.RecordCardShape
 import com.marlendd.remindy.ui.RecordRow
+import com.marlendd.remindy.ui.UiScale
 import com.marlendd.remindy.ui.theme.RemindyTheme
 import kotlinx.coroutines.launch
 
@@ -79,6 +81,7 @@ class ListActivity : AppCompatActivity() {
         super.onCreate(savedInstanceState)
         protectFromRecents() // содержимое списка – не в снимок «недавних» (мимо гейта)
         enableEdgeToEdge()
+        UiScale.ensureLoaded(this)
         setContent { RemindyTheme { ListScreen() } }
 
         if (!LockSettings.isLockEnabled(this) || ReadGate.unlocked) onUnlocked()
@@ -94,6 +97,8 @@ class ListActivity : AppCompatActivity() {
                     items = list
                     loading = false
                 }
+            } catch (e: CancellationException) {
+                throw e // выход с экрана отменяет сбор Flow – это не ошибка БД
             } catch (e: Exception) {
                 loading = false
                 Toast.makeText(this@ListActivity, R.string.db_error, Toast.LENGTH_LONG).show()
@@ -104,6 +109,8 @@ class ListActivity : AppCompatActivity() {
     private suspend fun acquireRepo(): RecordRepository? =
         try {
             RecordRepository(RemindyDatabase.getAsync(this))
+        } catch (e: CancellationException) {
+            throw e
         } catch (e: Exception) {
             loading = false
             Toast.makeText(this, R.string.db_error, Toast.LENGTH_LONG).show()

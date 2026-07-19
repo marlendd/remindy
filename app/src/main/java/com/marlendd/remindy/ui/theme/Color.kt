@@ -3,49 +3,50 @@ package com.marlendd.remindy.ui.theme
 import androidx.compose.ui.graphics.Color
 
 /**
- * Тёплая спокойная палитра (Фаза 4 UX). Терракотовый акцент, медовый вторичный,
- * тёплые нейтрали. Хексы одобрены пользователем на макете редизайна.
+ * Нейтрально-тёплая палитра (Фаза 4 UX, ревизия «меньше желтизны»). Один акцент –
+ * терракота; нейтрали – тёплый серо-бежевый БЕЗ жёлтого налёта; вторичные действия –
+ * нейтрально-серые (без медового). Хексы одобрены пользователем на устройстве.
  */
 
 // --- Светлая ---
-val WarmPrimary = Color(0xFFB0552F)
+val WarmPrimary = Color(0xFFB0552F)              // терракота (единственный цветной акцент)
 val WarmOnPrimary = Color(0xFFFFFFFF)
-val WarmPrimaryContainer = Color(0xFFFBD9C4)
-val WarmOnPrimaryContainer = Color(0xFF4A1E08)
-val WarmSecondary = Color(0xFF86612E)
+val WarmPrimaryContainer = Color(0xFFEBD9CF)     // приглушённая глина (не жёлтая)
+val WarmOnPrimaryContainer = Color(0xFF43180A)
+val WarmSecondary = Color(0xFF5E574F)            // тёплый серый
 val WarmOnSecondary = Color(0xFFFFFFFF)
-val WarmSecondaryContainer = Color(0xFFF6E1BE)
-val WarmOnSecondaryContainer = Color(0xFF4A3410)
-val WarmBackground = Color(0xFFF5ECE0)
-val WarmOnBackground = Color(0xFF2A1E15)
-val WarmSurface = Color(0xFFFFFDFA)
-val WarmOnSurface = Color(0xFF2A1E15)
-val WarmSurfaceVariant = Color(0xFFF3E4D5)
-val WarmOnSurfaceVariant = Color(0xFF6E5C4E)
-val WarmOutline = Color(0xFFA88E76)
-val WarmOutlineVariant = Color(0xFFE4D4C2)
+val WarmSecondaryContainer = Color(0xFFE3DED8)   // нейтрально-серый (вместо медового)
+val WarmOnSecondaryContainer = Color(0xFF3A352F)
+val WarmBackground = Color(0xFFF3F1ED)           // нейтральный тёплый off-white, минимум жёлтого
+val WarmOnBackground = Color(0xFF201C19)
+val WarmSurface = Color(0xFFFBFAF8)
+val WarmOnSurface = Color(0xFF201C19)
+val WarmSurfaceVariant = Color(0xFFE7E2DC)       // тёплый серый (клавиши/поля)
+val WarmOnSurfaceVariant = Color(0xFF565049)
+val WarmOutline = Color(0xFF89827A)
+val WarmOutlineVariant = Color(0xFFDBD5CE)
 val WarmError = Color(0xFFB3261E)
 val WarmOnError = Color(0xFFFFFFFF)
 val WarmErrorContainer = Color(0xFFF5D9D5)
 val WarmOnErrorContainer = Color(0xFF410E0B)
 
-// --- Тёмная (те же роли на тёплом коричнево-чёрном фоне) ---
-val WarmPrimaryDark = Color(0xFFF6B98E)
-val WarmOnPrimaryDark = Color(0xFF4A1E08)
-val WarmPrimaryContainerDark = Color(0xFF7A3B1E)
-val WarmOnPrimaryContainerDark = Color(0xFFFBD9C4)
-val WarmSecondaryDark = Color(0xFFDCC08C)
-val WarmOnSecondaryDark = Color(0xFF3D2E12)
-val WarmSecondaryContainerDark = Color(0xFF5A4526)
-val WarmOnSecondaryContainerDark = Color(0xFFF6E1BE)
-val WarmBackgroundDark = Color(0xFF17110C)
-val WarmOnBackgroundDark = Color(0xFFF0E3D6)
-val WarmSurfaceDark = Color(0xFF221A12)
-val WarmOnSurfaceDark = Color(0xFFF0E3D6)
-val WarmSurfaceVariantDark = Color(0xFF33261B)
-val WarmOnSurfaceVariantDark = Color(0xFFC7B4A2)
-val WarmOutlineDark = Color(0xFF8A745F)
-val WarmOutlineVariantDark = Color(0xFF3A2C20)
+// --- Тёмная (те же роли на нейтральном тёплом тёмном фоне) ---
+val WarmPrimaryDark = Color(0xFFF3B79B)
+val WarmOnPrimaryDark = Color(0xFF4E2110)
+val WarmPrimaryContainerDark = Color(0xFF6D3A25)
+val WarmOnPrimaryContainerDark = Color(0xFFFFDBC9)
+val WarmSecondaryDark = Color(0xFFC8C1B8)
+val WarmOnSecondaryDark = Color(0xFF302A24)
+val WarmSecondaryContainerDark = Color(0xFF3B3833)
+val WarmOnSecondaryContainerDark = Color(0xFFE3DED8)
+val WarmBackgroundDark = Color(0xFF15130F)
+val WarmOnBackgroundDark = Color(0xFFE9E3DD)
+val WarmSurfaceDark = Color(0xFF201C18)
+val WarmOnSurfaceDark = Color(0xFFE9E3DD)
+val WarmSurfaceVariantDark = Color(0xFF322E29)
+val WarmOnSurfaceVariantDark = Color(0xFFC7C0B7)
+val WarmOutlineDark = Color(0xFF928B82)
+val WarmOutlineVariantDark = Color(0xFF3A3530)
 val WarmErrorDark = Color(0xFFFFB4A9)
 val WarmOnErrorDark = Color(0xFF4A0906)
 val WarmErrorContainerDark = Color(0xFF5A211C)

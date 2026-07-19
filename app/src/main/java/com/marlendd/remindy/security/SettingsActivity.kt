@@ -10,6 +10,8 @@ import androidx.appcompat.app.AppCompatActivity
 import androidx.biometric.BiometricManager
 import androidx.biometric.BiometricManager.Authenticators.BIOMETRIC_STRONG
 import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -19,6 +21,7 @@ import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.HorizontalDivider
@@ -39,6 +42,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.lifecycleScope
 import com.marlendd.remindy.R
+import com.marlendd.remindy.ui.UiScale
 import com.marlendd.remindy.ui.theme.RemindyTheme
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -88,6 +92,7 @@ class SettingsActivity : AppCompatActivity() {
         super.onCreate(savedInstanceState)
         protectFromRecents()
         enableEdgeToEdge()
+        UiScale.ensureLoaded(this)
         appPin = AppPin(this)
 
         lockEnabled = LockSettings.isLockEnabled(this)
@@ -116,7 +121,11 @@ class SettingsActivity : AppCompatActivity() {
     private fun SettingsScreen() {
         Scaffold { inner ->
             Column(
-                Modifier.fillMaxSize().padding(inner).padding(16.dp),
+                Modifier
+                    .fillMaxSize()
+                    .padding(inner)
+                    .verticalScroll(rememberScrollState())
+                    .padding(16.dp),
             ) {
                 Text(
                     stringResource(R.string.title_settings),
@@ -160,7 +169,34 @@ class SettingsActivity : AppCompatActivity() {
                         Text(stringResource(R.string.settings_change_pin), fontSize = 20.sp)
                     }
                 }
+
+                // Масштаб интерфейса (доступность: крупнее для слабого зрения).
+                // Выбор применяется мгновенно ко всему UI, включая сам этот экран.
+                Spacer(Modifier.size(28.dp))
+                Text(
+                    stringResource(R.string.settings_scale),
+                    fontSize = 16.sp,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.padding(start = 4.dp, bottom = 10.dp),
+                )
+                ScaleOption(stringResource(R.string.scale_normal), UiScale.NORMAL)
+                Spacer(Modifier.size(8.dp))
+                ScaleOption(stringResource(R.string.scale_large), UiScale.LARGE)
+                Spacer(Modifier.size(8.dp))
+                ScaleOption(stringResource(R.string.scale_xlarge), UiScale.XLARGE)
             }
+        }
+    }
+
+    @Composable
+    private fun ScaleOption(label: String, value: Float) {
+        val selected = UiScale.factor == value
+        val mod = Modifier.fillMaxWidth().heightIn(min = 56.dp)
+        val onClick = { UiScale.set(this@SettingsActivity, value) }
+        if (selected) {
+            Button(onClick = onClick, modifier = mod) { Text(label, fontSize = 18.sp) }
+        } else {
+            OutlinedButton(onClick = onClick, modifier = mod) { Text(label, fontSize = 18.sp) }
         }
     }
 

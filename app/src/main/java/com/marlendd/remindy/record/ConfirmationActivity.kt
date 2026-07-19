@@ -47,7 +47,9 @@ import com.marlendd.remindy.data.RecordRepository
 import com.marlendd.remindy.data.RemindyDatabase
 import com.marlendd.remindy.security.protectFromRecents
 import com.marlendd.remindy.ui.IconLabel
+import com.marlendd.remindy.ui.UiScale
 import com.marlendd.remindy.ui.theme.RemindyTheme
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.launch
 
 /**
@@ -73,6 +75,7 @@ class ConfirmationActivity : AppCompatActivity() {
         super.onCreate(savedInstanceState)
         protectFromRecents() // при правке из списка тут видно место вещи – прячем из «недавних»
         enableEdgeToEdge()
+        UiScale.ensureLoaded(this)
 
         editingId = intent.getLongExtra(EXTRA_ITEM_ID, NO_ID)
         if (editingId == NO_ID) {
@@ -86,6 +89,8 @@ class ConfirmationActivity : AppCompatActivity() {
         lifecycleScope.launch {
             val repo = try {
                 RecordRepository(RemindyDatabase.getAsync(this@ConfirmationActivity))
+            } catch (e: CancellationException) {
+                throw e
             } catch (e: Exception) {
                 Toast.makeText(this@ConfirmationActivity, R.string.db_error, Toast.LENGTH_LONG).show()
                 finish()
@@ -242,6 +247,8 @@ class ConfirmationActivity : AppCompatActivity() {
                 }
                 Toast.makeText(this@ConfirmationActivity, R.string.toast_saved, Toast.LENGTH_SHORT).show()
                 finish()
+            } catch (e: CancellationException) {
+                throw e
             } catch (e: Exception) {
                 // Не роняем приложение – показываем ошибку, даём поправить ввод
                 Toast.makeText(this@ConfirmationActivity, R.string.toast_save_error, Toast.LENGTH_LONG).show()
@@ -259,6 +266,8 @@ class ConfirmationActivity : AppCompatActivity() {
                 if (existing != null) repo.delete(existing)
                 Toast.makeText(this@ConfirmationActivity, R.string.toast_deleted, Toast.LENGTH_SHORT).show()
                 finish()
+            } catch (e: CancellationException) {
+                throw e
             } catch (e: Exception) {
                 Toast.makeText(this@ConfirmationActivity, R.string.db_error, Toast.LENGTH_LONG).show()
             }

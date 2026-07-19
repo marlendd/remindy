@@ -52,6 +52,7 @@ import com.marlendd.remindy.record.ConfirmationActivity
 import com.marlendd.remindy.search.SearchActivity
 import com.marlendd.remindy.security.SettingsActivity
 import com.marlendd.remindy.ui.IconLabel
+import com.marlendd.remindy.ui.UiScale
 import com.marlendd.remindy.ui.theme.RemindyTheme
 import com.marlendd.remindy.voice.VoskModelHolder
 import kotlinx.coroutines.launch
@@ -98,6 +99,7 @@ class MainActivity : AppCompatActivity(), RecognitionListener {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
+        UiScale.ensureLoaded(this)
         setContent { RemindyTheme { MainScreen() } }
 
         LibVosk.setLogLevel(LogLevel.INFO)
