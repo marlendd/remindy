@@ -51,6 +51,7 @@ import com.marlendd.remindy.parse.UtteranceParser
 import com.marlendd.remindy.record.ConfirmationActivity
 import com.marlendd.remindy.search.SearchActivity
 import com.marlendd.remindy.security.SettingsActivity
+import com.marlendd.remindy.security.protectFromRecents
 import com.marlendd.remindy.ui.IconLabel
 import com.marlendd.remindy.ui.OnboardingPrefs
 import com.marlendd.remindy.ui.UiScale
@@ -92,9 +93,16 @@ class MainActivity : AppCompatActivity(), RecognitionListener {
     private var capturing by mutableStateOf(false)
     private var micDialog by mutableStateOf(MicDialog.NONE)
 
+    // Диалоги об отказе показываем только для запроса, начатого тапом «Сказать»:
+    // авто-запрос в onCreate при «навсегда отклонён» возвращает отказ мгновенно,
+    // и без этого флага пользователь получал бы диалог при КАЖДОМ запуске
+    private var micRequestedByTap = false
+
     private val micPermission =
         registerForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
-            if (!granted) handleMicDenied()
+            val fromTap = micRequestedByTap
+            micRequestedByTap = false
+            if (!granted && fromTap) handleMicDenied()
         }
 
     // Первый запуск: сперва онбординг, и только по возврату просим микрофон (иначе системный
@@ -107,6 +115,7 @@ class MainActivity : AppCompatActivity(), RecognitionListener {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        protectFromRecents() // при записи на экране живой текст фразы – не в снимок «недавних»
         enableEdgeToEdge()
         UiScale.ensureLoaded(this)
         setContent { RemindyTheme { MainScreen() } }
@@ -268,6 +277,7 @@ class MainActivity : AppCompatActivity(), RecognitionListener {
                 confirmButton = {
                     TextButton(onClick = {
                         micDialog = MicDialog.NONE
+                        micRequestedByTap = true
                         micPermission.launch(Manifest.permission.RECORD_AUDIO)
                     }) { Text(stringResource(R.string.btn_allow)) }
                 },
@@ -355,7 +365,13 @@ class MainActivity : AppCompatActivity(), RecognitionListener {
 
     private fun startRecognition() {
         if (!hasMicPermission()) {
-            micPermission.launch(Manifest.permission.RECORD_AUDIO)
+            // Отклоняли один раз → сперва объясняем, зачем микрофон; иначе сразу запрос
+            if (shouldShowRequestPermissionRationale(Manifest.permission.RECORD_AUDIO)) {
+                micDialog = MicDialog.RATIONALE
+            } else {
+                micRequestedByTap = true
+                micPermission.launch(Manifest.permission.RECORD_AUDIO)
+            }
             return
         }
         val loadedModel = model ?: return

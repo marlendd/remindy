@@ -95,4 +95,27 @@ class SearchEngineTest {
     @Test fun emptyQueryReturnsNothing() {
         assertTrue(engine.search("   ", listOf(target(1, "ключи"))).isEmpty())
     }
+
+    // --- Место в запросе -------------------------------------------------------
+
+    private fun targetAt(id: Long, name: String, location: String) =
+        SearchTarget(id, name, emptyList(), location)
+
+    @Test fun locationWordCompletesCoverage() {
+        // «паспорт ящике»: имя закрывает 1 из 2 слов (0.5 – ниже порога), место добирает второе
+        val r = engine.search("паспорт в ящике", listOf(targetAt(1, "паспорт", "в ящике стола")))
+        assertEquals(listOf(1L), r.map { it.id })
+    }
+
+    @Test fun locationOnlyQueryDoesNotMatch() {
+        // Запрос из одного места не должен вернуть всё, что там лежит – это нулевой поиск
+        val r = engine.search("ящике", listOf(targetAt(1, "паспорт", "в ящике стола")))
+        assertTrue(r.isEmpty())
+    }
+
+    @Test fun wrongLocationStillFailsThreshold() {
+        // Имя совпало, но место в запросе чужое: 1 из 2 слов → 0.5, не проходит
+        val r = engine.search("паспорт полке", listOf(targetAt(1, "паспорт", "в ящике стола")))
+        assertTrue(r.isEmpty())
+    }
 }

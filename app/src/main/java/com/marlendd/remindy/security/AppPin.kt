@@ -2,8 +2,6 @@ package com.marlendd.remindy.security
 
 import android.content.Context
 import java.io.File
-import java.io.FileOutputStream
-import java.io.IOException
 import java.nio.ByteBuffer
 import java.security.SecureRandom
 import javax.crypto.SecretKeyFactory
@@ -17,11 +15,21 @@ import javax.crypto.spec.PBEKeySpec
  * уже открытое приложение / TEE-ключ напрямую), но останавливает человека, знающего
  * лишь системный PIN телефона – ровно ту угрозу, ради которой код и вводится.
  *
+ * Лок меряется настенными часами ([clock]): перевод времени вперёд снимает его
+ * раньше срока. Персистентных монотонных часов на уровне приложения нет (elapsed
+ * сбрасывается ребутом); принято – счётчик неудач всё равно персистентен, а PBKDF2
+ * держит перебор медленным. Перевод часов назад капится (не удлиняем лок сверх MAX).
+ *
  * Все методы блокирующие (файл + PBKDF2) – вызывать с IO-потока.
+ * [dir] и [clock] в конструкторе – чтобы логика тестировалась на JVM без Android.
  */
-class AppPin(context: Context) {
+class AppPin(
+    private val dir: File,
+    private val clock: () -> Long = System::currentTimeMillis,
+) {
 
-    private val dir = context.applicationContext.filesDir
+    constructor(context: Context) : this(context.applicationContext.filesDir)
+
     private val hashFile: File get() = File(dir, HASH_FILE)
     private val lockFile: File get() = File(dir, LOCK_FILE)
 
@@ -58,9 +66,10 @@ class AppPin(context: Context) {
      */
     @Synchronized
     fun verify(pin: CharArray): Result {
-        val now = System.currentTimeMillis()
+        val now = clock()
         val state = readLock()
-        if (state.lockedUntil > now) return Result.Locked(state.lockedUntil - now)
+        val lockedUntil = clampedLockedUntil(state, now)
+        if (lockedUntil > now) return Result.Locked(lockedUntil - now)
 
         val blob = if (hashFile.exists()) hashFile.readBytes() else ByteArray(0)
         // Пустой/битый файл: не обращаемся к blob[0] до проверки размера – иначе краш
@@ -90,9 +99,21 @@ class AppPin(context: Context) {
         }
     }
 
+    /** Оставшееся время активного лока (0 – не залочен). Блокирующий (файл) – IO-поток. */
+    @Synchronized
+    fun lockRemainingMs(): Long {
+        val now = clock()
+        return (clampedLockedUntil(readLock(), now) - now).coerceAtLeast(0L)
+    }
+
     // --- Лок от перебора --------------------------------------------------------
 
     private data class LockState(val fails: Int, val lockedUntil: Long)
+
+    // Часы перевели назад → «оставшееся» время раздулось бы сверх любого лока;
+    // капим на MAX_LOCK_MS от текущего момента. Перевод вперёд не ловим (см. KDoc).
+    private fun clampedLockedUntil(state: LockState, now: Long): Long =
+        state.lockedUntil.coerceAtMost(now + MAX_LOCK_MS)
 
     private fun readLock(): LockState {
         if (!lockFile.exists()) return LockState(0, 0L)
@@ -136,19 +157,6 @@ class AppPin(context: Context) {
         var diff = 0
         for (i in a.indices) diff = diff or (a[i].toInt() xor b[i].toInt())
         return diff == 0
-    }
-
-    private fun atomicWrite(target: File, data: ByteArray) {
-        val tmp = File(target.parentFile, "${target.name}.tmp")
-        FileOutputStream(tmp).use { out ->
-            out.write(data)
-            out.flush()
-            out.fd.sync()
-        }
-        if (!tmp.renameTo(target)) {
-            tmp.delete()
-            throw IOException("Не удалось атомарно записать $target")
-        }
     }
 
     companion object {

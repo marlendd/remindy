@@ -70,6 +70,7 @@
     <string name="btn_delete">Удалить</string>
     <string name="confirm_delete_title">Удалить запись?</string>
     <string name="confirm_delete_message">«%1$s» будет удалено без возможности отмены.</string>
+    <string name="toast_item_missing">Эта запись уже удалена</string>
     <!-- Экран настроек (ТЗ F4) -->
     <string name="btn_settings">Настройки</string>
     <string name="title_settings">Настройки</string>

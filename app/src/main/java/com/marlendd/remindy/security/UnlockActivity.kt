@@ -96,11 +96,19 @@ class UnlockActivity : AppCompatActivity() {
         }
 
         lifecycleScope.launch {
-            setupMode = forceSetup || !withContext(Dispatchers.IO) { appPin.isSet() }
+            val (pinIsSet, lockedMs) = withContext(Dispatchers.IO) {
+                appPin.isSet() to appPin.lockRemainingMs()
+            }
+            setupMode = forceSetup || !pinIsSet
             titleText = getString(if (setupMode) R.string.unlock_create else R.string.unlock_enter)
-            if (!setupMode && biometricEnabledAndAvailable()) {
-                showBiometric = true
-                showBiometricPrompt()
+            if (!setupMode) {
+                // Активный лок показываем сразу, а не после набора кода впустую
+                if (lockedMs > 0) startLockCountdown(lockedMs)
+                // Биометрия – независимый фактор, лок кода её не блокирует
+                if (biometricEnabledAndAvailable()) {
+                    showBiometric = true
+                    showBiometricPrompt()
+                }
             }
         }
     }
@@ -283,8 +291,11 @@ class UnlockActivity : AppCompatActivity() {
         } else if (pin == first) {
             keypadEnabled = false // не даём повторный тап во время записи
             lifecycleScope.launch {
+                // Копию зануляем по контракту AppPin; сам код всё равно прошёл через
+                // String/StringBuilder UI – это best-effort, модель угроз не форензика
+                val chars = pin.toCharArray()
                 try {
-                    withContext(Dispatchers.IO) { appPin.setPin(pin.toCharArray()) }
+                    withContext(Dispatchers.IO) { appPin.setPin(chars) }
                 } catch (e: CancellationException) {
                     throw e
                 } catch (e: Exception) {
@@ -294,6 +305,8 @@ class UnlockActivity : AppCompatActivity() {
                     titleText = getString(R.string.unlock_create)
                     showError(getString(R.string.db_error))
                     return@launch
+                } finally {
+                    chars.fill(' ')
                 }
                 grant()
             }
@@ -308,8 +321,9 @@ class UnlockActivity : AppCompatActivity() {
     private fun handleEntry(pin: String) {
         keypadEnabled = false // гасим клавиатуру на время проверки: без гонки двойного тапа
         lifecycleScope.launch {
+            val chars = pin.toCharArray()
             val res = try {
-                withContext(Dispatchers.IO) { appPin.verify(pin.toCharArray()) }
+                withContext(Dispatchers.IO) { appPin.verify(chars) }
             } catch (e: CancellationException) {
                 throw e
             } catch (e: Exception) {
@@ -317,6 +331,8 @@ class UnlockActivity : AppCompatActivity() {
                 resetInput()
                 showError(getString(R.string.db_error))
                 return@launch
+            } finally {
+                chars.fill(' ')
             }
             when (res) {
                 AppPin.Result.Ok -> grant()
@@ -369,12 +385,15 @@ class UnlockActivity : AppCompatActivity() {
     // --- Прочее ---------------------------------------------------------------
 
     private fun grant() {
+        resetInput() // затираем набранный код и в буфере ввода
         ReadGate.markUnlocked()
         setResult(RESULT_OK)
         finish()
     }
 
     private fun resetInput() {
+        // setLength(0) не чистит внутренний char[] – затираем цифры перед сбросом
+        for (i in 0 until entered.length) entered.setCharAt(i, ' ')
         entered.setLength(0)
         dotsCount = 0
     }

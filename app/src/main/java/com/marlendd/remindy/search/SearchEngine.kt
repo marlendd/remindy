@@ -2,11 +2,12 @@ package com.marlendd.remindy.search
 
 import com.marlendd.remindy.parse.TextNormalizer
 
-/** Что ищем среди: предмет по имени и его алиасы (синонимы). Нормы уже нормализованы. */
+/** Что ищем среди: предмет по имени, его алиасы (синонимы) и место. Всё уже нормализовано. */
 data class SearchTarget(
     val id: Long,
     val nameNorm: String,
     val aliasNorms: List<String>,
+    val locationNorm: String = "",
 )
 
 /** id предмета и его релевантность запросу (0..1). */
@@ -16,8 +17,11 @@ data class SearchMatch(val id: Long, val score: Double)
  * Нечёткий поиск: нормализация → стоп-слова → стеммер → покрытие токенов запроса
  * (точная основа или добор Левенштейном) → ранжирование, топ-N.
  *
- * score = доля значимых слов запроса, нашедших совпадение в имени или алиасе
- * предмета. Порядок токенов не важен, лишние слова в имени не штрафуют.
+ * score = доля значимых слов запроса, нашедших совпадение в имени/алиасе предмета
+ * или в его месте («паспорт в ящике» находит паспорт, лежащий в ящике). Хотя бы одно
+ * слово обязано совпасть с именем/алиасом – запрос из одного места («ящик») не
+ * возвращает всё содержимое ящика, а уходит в нулевой поиск. Порядок токенов не
+ * важен, лишние слова в имени не штрафуют.
  */
 class SearchEngine(
     private val stemmer: Stemmer,
@@ -38,19 +42,32 @@ class SearchEngine(
     }
 
     private fun score(queryStems: List<String>, target: SearchTarget): Double {
-        val byName = coverage(queryStems, stemsOf(target.nameNorm))
-        val byAlias = target.aliasNorms.maxOfOrNull { coverage(queryStems, stemsOf(it)) } ?: 0.0
+        val locationStems = stemsOf(target.locationNorm)
+        val byName = coverage(queryStems, stemsOf(target.nameNorm), locationStems)
+        val byAlias = target.aliasNorms
+            .maxOfOrNull { coverage(queryStems, stemsOf(it), locationStems) } ?: 0.0
         return maxOf(byName, byAlias)
     }
 
     // Средняя сила совпадения слов запроса: точное = 1.0, нечёткое = 0.6.
-    // Так точное совпадение всегда ранжируется выше нечёткого.
-    private fun coverage(queryStems: List<String>, targetStems: List<String>): Double {
+    // Так точное совпадение всегда ранжируется выше нечёткого. Слово, не найденное
+    // в имени, может закрыться местом, но без единого совпадения по имени/алиасу
+    // покрытие = 0 (см. KDoc класса).
+    private fun coverage(
+        queryStems: List<String>,
+        targetStems: List<String>,
+        locationStems: List<String>,
+    ): Double {
         if (queryStems.isEmpty() || targetStems.isEmpty()) return 0.0
-        val sum = queryStems.sumOf { q ->
-            targetStems.maxOfOrNull { t -> matchQuality(q, t) } ?: 0.0
+        var sum = 0.0
+        var nameHit = false
+        for (q in queryStems) {
+            val byName = targetStems.maxOfOrNull { t -> matchQuality(q, t) } ?: 0.0
+            val byLocation = locationStems.maxOfOrNull { t -> matchQuality(q, t) } ?: 0.0
+            if (byName > 0.0) nameHit = true
+            sum += maxOf(byName, byLocation)
         }
-        return sum / queryStems.size
+        return if (nameHit) sum / queryStems.size else 0.0
     }
 
     // 1.0 – та же основа; FUZZY – опечатка в 1 правку, но только на длинных словах

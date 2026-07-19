@@ -48,6 +48,7 @@ import com.marlendd.remindy.R
 import com.marlendd.remindy.data.Item
 import com.marlendd.remindy.data.RecordRepository
 import com.marlendd.remindy.data.RemindyDatabase
+import com.marlendd.remindy.parse.TextNormalizer
 import com.marlendd.remindy.record.ConfirmationActivity
 import com.marlendd.remindy.security.LockSettings
 import com.marlendd.remindy.security.ReadGate
@@ -87,6 +88,10 @@ class SearchActivity : AppCompatActivity(), RecognitionListener {
 
     // не null → показан полный список после нулевого поиска, выбор обучит синоним
     private var learnQuery: String? = null
+
+    // Последний ВЫПОЛНЕННЫЙ запрос: по возврату с правки/удаления повторяем его,
+    // иначе результаты устаревают (удалённая запись оставалась бы кликабельной)
+    private var lastQuery: String? = null
 
     // UI-состояние
     private var query by mutableStateOf("")
@@ -262,6 +267,7 @@ class SearchActivity : AppCompatActivity(), RecognitionListener {
             return
         }
         val repo = repository ?: return
+        lastQuery = q
         lifecycleScope.launch {
             try {
                 val allItems = repo.allItems()
@@ -273,7 +279,12 @@ class SearchActivity : AppCompatActivity(), RecognitionListener {
                 }
                 val aliases = repo.aliasesByItem()
                 val targets = allItems.map {
-                    SearchTarget(it.id, it.nameNorm, aliases[it.id].orEmpty())
+                    SearchTarget(
+                        it.id,
+                        it.nameNorm,
+                        aliases[it.id].orEmpty(),
+                        TextNormalizer.normalize(it.location),
+                    )
                 }
                 val matches = engine.search(q, targets)
                 if (matches.isNotEmpty()) {
@@ -303,9 +314,16 @@ class SearchActivity : AppCompatActivity(), RecognitionListener {
         val repo = repository
         if (q != null && repo != null) {
             lifecycleScope.launch {
-                try { repo.learnSynonym(q, item.id) } catch (_: Exception) { }
+                try {
+                    repo.learnSynonym(q, item.id)
+                    // «Запомнил» – только после реального сохранения синонима
+                    Toast.makeText(this@SearchActivity, R.string.toast_learned, Toast.LENGTH_SHORT).show()
+                } catch (e: CancellationException) {
+                    throw e
+                } catch (_: Exception) {
+                    // Синоним не записался – просто не подтверждаем, поиск продолжит работать
+                }
             }
-            Toast.makeText(this, R.string.toast_learned, Toast.LENGTH_SHORT).show()
         }
         startActivity(
             Intent(this, ConfirmationActivity::class.java)
@@ -345,6 +363,12 @@ class SearchActivity : AppCompatActivity(), RecognitionListener {
     private fun hasMicPermission(): Boolean =
         ContextCompat.checkSelfPermission(this, Manifest.permission.RECORD_AUDIO) ==
             PackageManager.PERMISSION_GRANTED
+
+    override fun onResume() {
+        super.onResume()
+        // Вернулись с правки/удаления записи – данные могли измениться, повторяем поиск
+        lastQuery?.let { if (!capturing) runSearch(it) }
+    }
 
     override fun onStop() {
         super.onStop()

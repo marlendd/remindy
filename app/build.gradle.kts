@@ -1,4 +1,5 @@
 import java.net.URI
+import java.security.MessageDigest
 import java.util.UUID
 import javax.inject.Inject
 
@@ -81,12 +82,18 @@ dependencies {
 val voskModelVersion = "0.22"
 val voskModelName = "vosk-model-small-ru-$voskModelVersion"
 val voskModelUrl = "https://alphacephei.com/vosk/models/$voskModelName.zip"
+// SHA-256 официального zip (пин против подмены на CDN); посчитан с локально
+// скачанного архива, из которого собрана device-verified модель
+val voskModelSha256 = "961d5ff98a17f4aa6de69864d0aa71fa5bac682301d2b5d17a3f24c5c99a46d4"
 // Имя каталога модели внутри assets – его же ждёт StorageService.unpack в коде
 val voskAssetDirName = "model-ru-small"
 
 abstract class DownloadVoskModelTask : DefaultTask() {
     @get:Input
     abstract val url: Property<String>
+
+    @get:Input
+    abstract val sha256: Property<String>
 
     @get:OutputFile
     abstract val outputFile: RegularFileProperty
@@ -95,6 +102,9 @@ abstract class DownloadVoskModelTask : DefaultTask() {
     fun download() {
         val target = outputFile.get().asFile
         target.parentFile.mkdirs()
+        // Кэш уже скачан и цел – не гоняем 45 МБ заново (важно: смена inputs таска
+        // инвалидирует up-to-date, но целый файл переживает её этой проверкой)
+        if (target.exists() && fileSha256(target) == sha256.get()) return
         val part = File(target.parentFile, "${target.name}.part")
         val connection = URI(url.get()).toURL().openConnection().apply {
             connectTimeout = 30_000
@@ -103,11 +113,25 @@ abstract class DownloadVoskModelTask : DefaultTask() {
         connection.getInputStream().use { input ->
             part.outputStream().buffered().use { output -> input.copyTo(output) }
         }
-        check(part.length() > 40_000_000) {
-            "Скачанная модель подозрительно мала: ${part.length()} байт ($part)"
+        val actual = fileSha256(part)
+        check(actual == sha256.get()) {
+            "SHA-256 модели не совпал: ожидали ${sha256.get()}, получили $actual ($part)"
         }
         if (target.exists()) target.delete()
         check(part.renameTo(target)) { "Не удалось переименовать $part в $target" }
+    }
+
+    private fun fileSha256(file: File): String {
+        val digest = MessageDigest.getInstance("SHA-256")
+        file.inputStream().buffered().use { input ->
+            val buf = ByteArray(64 * 1024)
+            while (true) {
+                val read = input.read(buf)
+                if (read < 0) break
+                digest.update(buf, 0, read)
+            }
+        }
+        return digest.digest().joinToString("") { "%02x".format(it) }
     }
 }
 
@@ -167,6 +191,7 @@ abstract class GenVoskModelUuidTask : DefaultTask() {
 
 val downloadVoskModel = tasks.register<DownloadVoskModelTask>("downloadVoskModel") {
     url = voskModelUrl
+    sha256 = voskModelSha256
     outputFile = rootProject.layout.projectDirectory.file(".cache/$voskModelName.zip")
 }
 

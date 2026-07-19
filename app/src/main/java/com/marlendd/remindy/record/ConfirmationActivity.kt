@@ -104,7 +104,14 @@ class ConfirmationActivity : AppCompatActivity() {
     }
 
     private suspend fun loadForEditing(repo: RecordRepository, id: Long) {
-        val existing = repo.findById(id) ?: return
+        val existing = repo.findById(id)
+        if (existing == null) {
+            // Запись успели удалить (например, тап по устаревшему результату поиска) –
+            // честно говорим и закрываемся, а не открываем пустую правку
+            Toast.makeText(this, R.string.toast_item_missing, Toast.LENGTH_LONG).show()
+            finish()
+            return
+        }
         // Не затираем то, что пользователь успел набрать, пока шёл запрос
         if (itemText.isEmpty()) itemText = existing.name
         if (locationText.isEmpty()) locationText = existing.location
@@ -239,9 +246,13 @@ class ConfirmationActivity : AppCompatActivity() {
                 val id = editingId
                 if (id != NO_ID) {
                     val existing = repo.findById(id)
-                    if (existing != null) {
-                        repo.update(existing.copy(name = name, location = location), now)
+                    if (existing == null) {
+                        // Запись удалили, пока экран был открыт – «Сохранено» было бы враньём
+                        Toast.makeText(this@ConfirmationActivity, R.string.toast_item_missing, Toast.LENGTH_LONG).show()
+                        finish()
+                        return@launch
                     }
+                    repo.update(existing.copy(name = name, location = location), now)
                 } else {
                     repo.save(name, location, now)
                 }

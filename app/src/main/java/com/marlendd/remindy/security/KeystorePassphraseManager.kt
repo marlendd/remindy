@@ -6,7 +6,6 @@ import android.security.keystore.KeyGenParameterSpec
 import android.security.keystore.KeyPermanentlyInvalidatedException
 import android.security.keystore.KeyProperties
 import java.io.File
-import java.io.FileOutputStream
 import java.io.IOException
 import java.security.GeneralSecurityException
 import java.security.KeyStore
@@ -125,19 +124,6 @@ class KeystorePassphraseManager(context: Context) {
             // AEADBadTagException/BadPaddingException: обёртка не расшифровалась
             // (порча файла или несовпадение ключа) – тоже потеря пароля, а не краш.
             throw PassphraseUnavailableException("Обёртка пароля не расшифровалась", e)
-        }
-    }
-
-    private fun atomicWrite(target: File, data: ByteArray) {
-        val tmp = File(target.parentFile, "${target.name}.tmp")
-        FileOutputStream(tmp).use { out ->
-            out.write(data)
-            out.flush()
-            out.fd.sync()
-        }
-        if (!tmp.renameTo(target)) {
-            tmp.delete()
-            throw IOException("Не удалось атомарно записать $target")
         }
     }
 
