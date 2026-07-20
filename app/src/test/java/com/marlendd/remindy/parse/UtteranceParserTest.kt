@@ -125,4 +125,57 @@ class UtteranceParserTest {
         assertEquals("Очки", r.item)
         assertEquals("На Полке", r.location)
     }
+
+    // --- Активные глаголы «куда я это дел» -------------------------------------
+
+    @Test fun stripsTrailingActionVerbPolozhu() {
+        // Репортнутый случай: «положу» липло к предмету
+        val r = parse("паспорт положу в комод")
+        assertEquals("паспорт", r.item)
+        assertEquals("в комод", r.location)
+    }
+
+    @Test fun stripsTrailingActionVerbUbral() {
+        val r = parse("очки убрал в стол")
+        assertEquals("очки", r.item)
+        assertEquals("в стол", r.location)
+    }
+
+    @Test fun stripsTrailingActionVerbPovesil() {
+        val r = parse("запасные ключи повесил на крючок")
+        assertEquals("запасные ключи", r.item)
+        assertEquals("на крючок", r.location)
+    }
+
+    @Test fun stripsTrailingActionVerbPolozhilaPast() {
+        val r = parse("таблетки положила в тумбочку")
+        assertEquals("таблетки", r.item)
+        assertEquals("в тумбочку", r.location)
+    }
+
+    @Test fun stripsTrailingActionVerbKladu() {
+        val r = parse("паспорт кладу в сумку")
+        assertEquals("паспорт", r.item)
+        assertEquals("в сумку", r.location)
+    }
+
+    @Test fun stripsTrailingActionVerbZasunul() {
+        val r = parse("зарядку засунул за диван")
+        assertEquals("зарядку", r.item)
+        assertEquals("за диван", r.location)
+    }
+
+    @Test fun stripsActionVerbWithYoNormalization() {
+        // «уберём» через ё нормализуется в «уберем» и тоже отсекается
+        val r = parse("бельё уберём в шкаф")
+        assertEquals("бельё", r.item)
+        assertEquals("в шкаф", r.location)
+    }
+
+    @Test fun actionVerbOnlyItemIsNotEmptied() {
+        // глагол-действие – единственное слово перед предлогом: предмет не опустошаем
+        val r = parse("положу в комод")
+        assertEquals("положу", r.item)
+        assertEquals("в комод", r.location)
+    }
 }
