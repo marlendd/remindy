@@ -26,6 +26,7 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material3.Button
+import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
@@ -191,15 +192,25 @@ class SearchActivity : AppCompatActivity(), RecognitionListener {
                 modifier = Modifier.fillMaxWidth(),
             )
             Spacer(Modifier.size(10.dp))
+            // Поиск по НАБРАННОМУ тексту (основная кнопка, лупа). Раньше искать текст можно было
+            // только скрытой клавишей «поиск» на клавиатуре – для пожилого это не очевидно.
             Button(
+                onClick = { runSearch(query) },
+                modifier = Modifier.fillMaxWidth().heightIn(min = 72.dp),
+            ) {
+                IconLabel(R.drawable.ic_search, stringResource(R.string.btn_find), 24.sp)
+            }
+            Spacer(Modifier.size(10.dp))
+            // Поиск ГОЛОСОМ (тональная кнопка, микрофон) – отделена от текстовой, чтобы не путать
+            FilledTonalButton(
                 onClick = { toggleVoice() },
                 enabled = voiceEnabled,
-                modifier = Modifier.fillMaxWidth().heightIn(min = 72.dp),
+                modifier = Modifier.fillMaxWidth().heightIn(min = 64.dp),
             ) {
                 IconLabel(
                     R.drawable.ic_mic,
-                    stringResource(if (capturing) R.string.btn_stop else R.string.btn_find),
-                    24.sp,
+                    stringResource(if (capturing) R.string.btn_stop else R.string.btn_speak),
+                    22.sp,
                 )
             }
             Spacer(Modifier.size(12.dp))
