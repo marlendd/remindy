@@ -118,4 +118,43 @@ class SearchEngineTest {
         val r = engine.search("паспорт полке", listOf(targetAt(1, "паспорт", "в ящике стола")))
         assertTrue(r.isEmpty())
     }
+
+    // --- Встроенный тезаурус (SynonymDictionary) -------------------------------
+    // IdentityStemmer: словарь линкует ровно эти поверхностные формы
+
+    @Test fun thesaurusCategoryFindsMember() {
+        // «документы» → находит запись «паспорт» (категория → член)
+        val r = engine.search("документы", listOf(target(1, "паспорт"), target(2, "очки")))
+        assertEquals(listOf(1L), r.map { it.id })
+    }
+
+    @Test fun thesaurusMemberFindsCategoryName() {
+        // «паспорт» → находит запись, названную «документы» (член → категория)
+        val r = engine.search("паспорт", listOf(target(1, "документы")))
+        assertEquals(listOf(1L), r.map { it.id })
+    }
+
+    @Test fun thesaurusMembersDoNotCrossMatch() {
+        // «права» и «паспорт» оба документы, но НЕ синонимы: поиск «права» не тянет «паспорт»
+        val r = engine.search("права", listOf(target(1, "паспорт")))
+        assertTrue(r.isEmpty())
+    }
+
+    @Test fun thesaurusTrueSynonymBothWays() {
+        assertEquals(listOf(1L), engine.search("мобильник", listOf(target(1, "телефон"))).map { it.id })
+        assertEquals(listOf(1L), engine.search("телефон", listOf(target(1, "мобильник"))).map { it.id })
+    }
+
+    @Test fun exactRanksAboveThesaurusSynonym() {
+        // Точное имя (1.0) выше связи по тезаурусу (0.9)
+        val r = engine.search("документы", listOf(target(1, "паспорт"), target(2, "документы")))
+        assertEquals(2L, r.first().id)
+        assertEquals(listOf(2L, 1L), r.map { it.id })
+    }
+
+    @Test fun thesaurusCategoryFindsMemberInMultiwordName() {
+        // «лекарства» → «глазные капли» (капли — член категории лекарства)
+        val r = engine.search("лекарства", listOf(target(1, "глазные капли"), target(2, "ключи")))
+        assertEquals(listOf(1L), r.map { it.id })
+    }
 }

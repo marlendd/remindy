@@ -29,6 +29,10 @@ class SearchEngine(
     private val limit: Int = 5,
 ) {
 
+    // Основа запроса → основы, которые она покрывает по встроенному тезаурусу.
+    // Стеммим словарь тем же [stemmer]; строим один раз на первый поиск.
+    private val expansions: Map<String, Set<String>> by lazy { SynonymDictionary.buildStemmed(stemmer) }
+
     fun search(rawQuery: String, targets: List<SearchTarget>): List<SearchMatch> {
         val queryStems = contentStems(rawQuery)
         if (queryStems.isEmpty()) return emptyList()
@@ -70,15 +74,18 @@ class SearchEngine(
         return if (nameHit) sum / queryStems.size else 0.0
     }
 
-    // 1.0 – та же основа; FUZZY – опечатка в 1 правку, но только на длинных словах
-    // (>=5) с общим первым символом. Иначе короткие слова ложно совпадают:
-    // «мёд»≈«мел», «кот»≈«код», «лук»≈«люк».
-    private fun matchQuality(a: String, b: String): Double {
-        if (a == b) return 1.0
-        if (a.isEmpty() || b.isEmpty()) return 0.0
-        if (minOf(a.length, b.length) < MIN_FUZZY_LEN) return 0.0
-        if (a[0] != b[0]) return 0.0
-        return if (Levenshtein.distance(a, b) <= 1) FUZZY else 0.0
+    // Насколько слово запроса `q` совпадает со словом цели `t` (направленно, q→t):
+    // 1.0 – та же основа; SYN – связаны тезаурусом (документы→паспорт, телефон→мобильник);
+    // FUZZY – опечатка в 1 правку, но только на длинных словах (>=5) с общим первым символом
+    // (иначе короткие ложно совпадают: «мёд»≈«мел», «кот»≈«код», «лук»≈«люк»).
+    // Порядок: точное > синоним > опечатка.
+    private fun matchQuality(q: String, t: String): Double {
+        if (q == t) return 1.0
+        if (q.isEmpty() || t.isEmpty()) return 0.0
+        if (expansions[q]?.contains(t) == true) return SYN
+        if (minOf(q.length, t.length) < MIN_FUZZY_LEN) return 0.0
+        if (q[0] != t[0]) return 0.0
+        return if (Levenshtein.distance(q, t) <= 1) FUZZY else 0.0
     }
 
     private fun contentStems(raw: String): List<String> {
@@ -93,6 +100,7 @@ class SearchEngine(
         norm.split(' ').filter { it.isNotBlank() }.map { stemmer.stem(it) }
 
     private companion object {
+        const val SYN = 0.9   // связь по тезаурусу: ниже точного (1.0), выше опечатки (0.6)
         const val FUZZY = 0.6
         const val MIN_FUZZY_LEN = 5
     }
