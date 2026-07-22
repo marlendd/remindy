@@ -92,12 +92,14 @@ class UnlockActivity : AppCompatActivity() {
         UiScale.ensureLoaded(this)
         appPin = AppPin(this)
         forceSetup = intent.getBooleanExtra(EXTRA_FORCE_SETUP, false)
+        val reauth = intent.getBooleanExtra(EXTRA_REAUTH, false)
 
         setContent { RemindyTheme { UnlockScreen() } }
 
-        // Уже разблокировано в этой сессии – ничего не спрашиваем (кроме принудительной
-        // установки/смены кода из настроек, где мы намеренно хотим задать новый код).
-        if (ReadGate.unlocked && !forceSetup) {
+        // Уже разблокировано в этой сессии – ничего не спрашиваем. Исключения:
+        // принудительная установка/смена кода и REAUTH (подтверждение разрушительного
+        // действия: спрашиваем отпечаток/код заново, открытая сессия не считается).
+        if (ReadGate.unlocked && !forceSetup && !reauth) {
             grant()
             return
         }
@@ -449,5 +451,12 @@ class UnlockActivity : AppCompatActivity() {
     companion object {
         /** Принудительный режим установки/смены кода (из настроек), даже если код уже задан. */
         const val EXTRA_FORCE_SETUP = "extra_force_setup"
+
+        /**
+         * Повторная аутентификация для разрушительных действий (стереть все данные):
+         * отпечаток/код спрашиваются заново, даже если вход в этой сессии уже пройден.
+         * Вызывать только когда код задан (иначе экран уйдёт в режим установки кода).
+         */
+        const val EXTRA_REAUTH = "extra_reauth"
     }
 }

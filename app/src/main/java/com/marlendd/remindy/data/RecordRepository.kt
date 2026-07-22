@@ -137,6 +137,19 @@ class RecordRepository(private val db: RemindyDatabase) {
 
     suspend fun delete(item: Item) = itemDao.delete(item)
 
+    /**
+     * Полное удаление данных пользователя («Стереть все данные» в настройках):
+     * записи, синонимы, история мест – атомарно. Файлы фото чистит вызывающий
+     * (PhotoStore.deleteAll). Настройки/код приложения не трогаем – это конфигурация.
+     */
+    suspend fun wipeAll() {
+        db.withTransaction {
+            synonymDao.deleteAll()
+            historyDao.deleteAll()
+            itemDao.deleteAll()
+        }
+    }
+
     // --- Резервная копия ------------------------------------------------------
 
     /** Все записи для экспорта в бэкап (только предмет/место/даты). */

@@ -112,6 +112,13 @@ class SettingsActivity : AppCompatActivity() {
             }
         }
 
+    // «Стереть все данные»: после диалога – повторная аутентификация (отпечаток/код,
+    // открытая сессия не считается), и только по её успеху – реальное удаление
+    private val wipeAuthLauncher =
+        registerForActivityResult(ActivityResultContracts.StartActivityForResult()) { result ->
+            if (result.resultCode == RESULT_OK) doWipe()
+        }
+
     // --- Резервная копия ------------------------------------------------------
 
     // Наблюдаемое состояние: база открывается асинхронно, и по её готовности Compose
@@ -125,6 +132,7 @@ class SettingsActivity : AppCompatActivity() {
     private var showImportPassword by mutableStateOf(false)
     private var showImportConfirm by mutableStateOf(false)
     private var importCount by mutableStateOf(0)
+    private var showWipeConfirm by mutableStateOf(false)
 
     private var exportPassword: String? = null
     private var pendingImportUri: Uri? = null
@@ -304,6 +312,21 @@ class SettingsActivity : AppCompatActivity() {
                     Text(stringResource(R.string.settings_help), fontSize = 18.sp)
                 }
 
+                // Стереть все данные – разрушительное, поэтому в самом низу, danger-стилем
+                // и с двойной защитой: диалог + повторный отпечаток/код
+                Spacer(Modifier.size(36.dp))
+                OutlinedButton(
+                    onClick = { showWipeConfirm = true },
+                    enabled = repository != null && !busy,
+                    colors = androidx.compose.material3.ButtonDefaults.outlinedButtonColors(
+                        contentColor = MaterialTheme.colorScheme.error,
+                    ),
+                    border = BorderStroke(1.5.dp, MaterialTheme.colorScheme.error.copy(alpha = 0.4f)),
+                    modifier = Modifier.fillMaxWidth().heightIn(min = 56.dp),
+                ) {
+                    Text(stringResource(R.string.settings_wipe), fontSize = 18.sp)
+                }
+
                 if (showExportPassword) {
                     PasswordDialog(
                         title = stringResource(R.string.settings_backup_export),
@@ -326,6 +349,24 @@ class SettingsActivity : AppCompatActivity() {
                             pendingImportUri = null
                         },
                         onConfirm = ::onImportPasswordEntered,
+                    )
+                }
+                if (showWipeConfirm) {
+                    AlertDialog(
+                        onDismissRequest = { showWipeConfirm = false },
+                        title = { Text(stringResource(R.string.wipe_confirm_title)) },
+                        text = { Text(stringResource(R.string.wipe_confirm_msg)) },
+                        confirmButton = {
+                            TextButton(onClick = {
+                                showWipeConfirm = false
+                                confirmWipeWithAuth()
+                            }) { Text(stringResource(R.string.btn_wipe), color = MaterialTheme.colorScheme.error) }
+                        },
+                        dismissButton = {
+                            TextButton(onClick = { showWipeConfirm = false }) {
+                                Text(stringResource(R.string.btn_cancel))
+                            }
+                        },
                     )
                 }
                 if (showImportConfirm) {
@@ -664,6 +705,45 @@ class SettingsActivity : AppCompatActivity() {
         showImportConfirm = false
         pendingRestore = null
         pendingImportUri = null
+    }
+
+    // --- Стереть все данные ----------------------------------------------------
+
+    // Код задан → повторная аутентификация (отпечаток/код, сессия не считается).
+    // Кода нет → защищаться нечем, достаточно диалога (иначе UnlockActivity ушёл бы
+    // в режим УСТАНОВКИ кода – абсурд для удаления).
+    private fun confirmWipeWithAuth() {
+        lifecycleScope.launch {
+            val hasPin = withContext(Dispatchers.IO) { appPin.isSet() }
+            if (hasPin) {
+                wipeAuthLauncher.launch(
+                    Intent(this@SettingsActivity, UnlockActivity::class.java)
+                        .putExtra(UnlockActivity.EXTRA_REAUTH, true),
+                )
+            } else {
+                doWipe()
+            }
+        }
+    }
+
+    private fun doWipe() {
+        val repo = repository ?: return
+        busy = true
+        lifecycleScope.launch {
+            try {
+                withContext(Dispatchers.IO) {
+                    repo.wipeAll()
+                    PhotoStore.deleteAll(this@SettingsActivity)
+                }
+                Toast.makeText(this@SettingsActivity, R.string.wipe_done, Toast.LENGTH_LONG).show()
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                Toast.makeText(this@SettingsActivity, R.string.wipe_err, Toast.LENGTH_LONG).show()
+            } finally {
+                busy = false
+            }
+        }
     }
 
     private fun defaultBackupName(): String {

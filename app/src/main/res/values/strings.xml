@@ -116,6 +116,13 @@
     <string name="backup_import_bad_file">Это не файл резервной копии</string>
     <string name="backup_import_empty">В копии нет записей — восстанавливать нечего</string>
     <string name="backup_import_err">Не удалось восстановить</string>
+    <!-- Стереть все данные (настройки; подтверждение отпечатком/кодом) -->
+    <string name="settings_wipe">Стереть все данные</string>
+    <string name="wipe_confirm_title">Стереть все данные?</string>
+    <string name="wipe_confirm_msg">Все записи и фотографии будут удалены навсегда. Это нельзя отменить. Код приложения и настройки останутся.</string>
+    <string name="btn_wipe">Стереть</string>
+    <string name="wipe_done">Все записи удалены</string>
+    <string name="wipe_err">Не удалось удалить данные</string>
     <!-- Онбординг (подсказка при первом запуске + «Как пользоваться» в настройках) -->
     <string name="onboarding_intro">Запоминайте голосом, куда кладёте вещи – и находите их потом.</string>
     <string name="onboarding_step_speak">Нажмите «Сказать» и назовите вещь и место: «очки на столе». Или просто важное: «код от подъезда 4271».</string>
