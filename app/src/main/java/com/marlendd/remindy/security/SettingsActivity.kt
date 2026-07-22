@@ -113,7 +113,11 @@ class SettingsActivity : AppCompatActivity() {
 
     // --- Резервная копия ------------------------------------------------------
 
-    private var repository: RecordRepository? = null
+    // Наблюдаемое состояние: база открывается асинхронно, и по её готовности Compose
+    // должен перерисовать кнопки бэкапа. Простой var Compose не видел — кнопки
+    // оставались выключенными, если экран отрисовался раньше базы (замок выключен
+    // или вход уже пройден в этой сессии).
+    private var repository by mutableStateOf<RecordRepository?>(null)
 
     private var busy by mutableStateOf(false)
     private var showExportPassword by mutableStateOf(false)
