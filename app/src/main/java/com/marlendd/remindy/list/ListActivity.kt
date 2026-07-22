@@ -47,6 +47,7 @@ import kotlinx.coroutines.CancellationException
 import com.marlendd.remindy.data.Item
 import com.marlendd.remindy.data.RecordRepository
 import com.marlendd.remindy.data.RemindyDatabase
+import com.marlendd.remindy.photo.PhotoStore
 import com.marlendd.remindy.record.ConfirmationActivity
 import com.marlendd.remindy.security.LockSettings
 import com.marlendd.remindy.security.ReadGate
@@ -131,6 +132,7 @@ class ListActivity : AppCompatActivity() {
         lifecycleScope.launch {
             try {
                 repo.delete(item) // строку уберёт эмиссия observeAll()
+                PhotoStore.delete(this@ListActivity, item.photoFile) // фото места – вместе с записью
                 Toast.makeText(this@ListActivity, R.string.toast_deleted, Toast.LENGTH_SHORT).show()
             } catch (e: Exception) {
                 Toast.makeText(this@ListActivity, R.string.db_error, Toast.LENGTH_LONG).show()

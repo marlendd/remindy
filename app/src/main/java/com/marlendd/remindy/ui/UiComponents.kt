@@ -1,8 +1,10 @@
 package com.marlendd.remindy.ui
 
 import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
@@ -16,7 +18,10 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
@@ -65,16 +70,34 @@ fun RecordRow(
         elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
         border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
     ) {
-        Column(Modifier.padding(horizontal = 18.dp, vertical = 14.dp)) {
-            Text(item.name, fontSize = 24.sp, fontWeight = FontWeight.Bold)
-            Text(item.location, fontSize = 20.sp, modifier = Modifier.padding(top = 2.dp))
-            val dateText = remember(item.updatedAt) { formatRuDate(item.updatedAt) }
-            Text(
-                stringResource(R.string.row_updated, dateText),
-                fontSize = 14.sp,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                modifier = Modifier.padding(top = 6.dp),
-            )
+        Row(
+            Modifier.padding(horizontal = 18.dp, vertical = 14.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Column(Modifier.weight(1f)) {
+                Text(item.name, fontSize = 24.sp, fontWeight = FontWeight.Bold)
+                Text(item.location, fontSize = 20.sp, modifier = Modifier.padding(top = 2.dp))
+                val dateText = remember(item.updatedAt) { formatRuDate(item.updatedAt) }
+                Text(
+                    stringResource(R.string.row_updated, dateText),
+                    fontSize = 14.sp,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.padding(top = 6.dp),
+                )
+            }
+            // Миниатюра фото места, если снято (открывается тапом по карточке → правка)
+            if (item.photoFile != null) {
+                val thumb = rememberPhotoBitmap(item.photoFile, 256)
+                if (thumb != null) {
+                    Spacer(Modifier.width(12.dp))
+                    Image(
+                        thumb,
+                        contentDescription = null, // информация дублируется текстом карточки
+                        contentScale = ContentScale.Crop,
+                        modifier = Modifier.size(64.dp).clip(RoundedCornerShape(10.dp)),
+                    )
+                }
+            }
         }
     }
 }

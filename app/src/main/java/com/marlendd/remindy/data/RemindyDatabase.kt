@@ -4,6 +4,8 @@ import android.content.Context
 import androidx.room.Database
 import androidx.room.Room
 import androidx.room.RoomDatabase
+import androidx.room.migration.Migration
+import androidx.sqlite.db.SupportSQLiteDatabase
 import com.marlendd.remindy.security.DatabaseKey
 import com.marlendd.remindy.security.KeystorePassphraseManager
 import kotlinx.coroutines.Dispatchers
@@ -12,7 +14,7 @@ import net.zetetic.database.sqlcipher.SupportOpenHelperFactory
 
 @Database(
     entities = [Item::class, Synonym::class, LocationHistory::class],
-    version = 1,
+    version = 2, // v2: items.photo_file (фото места)
     exportSchema = true,
 )
 abstract class RemindyDatabase : RoomDatabase() {
@@ -26,6 +28,13 @@ abstract class RemindyDatabase : RoomDatabase() {
 
         @Volatile private var instance: RemindyDatabase? = null
         @Volatile private var sqlcipherLoaded = false
+
+        // 1→2: фото места (nullable имя файла) – существующие записи остаются без фото
+        private val MIGRATION_1_2 = object : Migration(1, 2) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("ALTER TABLE items ADD COLUMN photo_file TEXT")
+            }
+        }
 
         /**
          * База во внутреннем хранилище, зашифрована SQLCipher (этап 5).
@@ -54,6 +63,7 @@ abstract class RemindyDatabase : RoomDatabase() {
             // ключ при каждом (пере)открытии соединения – зануление окирпичило бы базу.
             return Room.databaseBuilder(appContext, RemindyDatabase::class.java, DB_NAME)
                 .openHelperFactory(SupportOpenHelperFactory(rawKey))
+                .addMigrations(MIGRATION_1_2)
                 .build()
         }
 

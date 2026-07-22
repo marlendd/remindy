@@ -40,9 +40,15 @@ class RecordRepository(private val db: RemindyDatabase) {
      * Сохраняет предмет с местом. Если предмет с таким же нормализованным именем
      * уже есть – обновляет место (старое непустое место кладёт в историю), иначе
      * создаёт новую запись. Атомарно.
+     *
+     * [photoFile] – фото места этой записи (null = фото не снимали; у существующей
+     * записи прежнее фото при этом остаётся). Возвращает имена фото-файлов, которые
+     * больше НЕ принадлежат ни одной записи – файлы удаляет вызывающая сторона
+     * (репозиторий не трогает диск).
      */
-    suspend fun save(name: String, location: String, now: Long) {
+    suspend fun save(name: String, location: String, now: Long, photoFile: String? = null): List<String> {
         val nameNorm = TextNormalizer.normalize(name)
+        val orphans = mutableListOf<String>()
         db.withTransaction {
             val existing = itemDao.findByNameNorm(nameNorm)
             if (existing == null) {
@@ -53,6 +59,7 @@ class RecordRepository(private val db: RemindyDatabase) {
                         location = location,
                         createdAt = now,
                         updatedAt = now,
+                        photoFile = photoFile,
                     ),
                 )
             } else {
@@ -65,15 +72,20 @@ class RecordRepository(private val db: RemindyDatabase) {
                         ),
                     )
                 }
+                if (photoFile != null && existing.photoFile != null && existing.photoFile != photoFile) {
+                    orphans += existing.photoFile
+                }
                 itemDao.update(
                     existing.copy(
                         name = name,
                         location = location,
                         updatedAt = now,
+                        photoFile = photoFile ?: existing.photoFile,
                     ),
                 )
             }
         }
+        return orphans
     }
 
     /**
@@ -81,10 +93,18 @@ class RecordRepository(private val db: RemindyDatabase) {
      * так, что оно совпало с ДРУГИМ предметом (тот же name_norm, UNIQUE), сливаем
      * в него по логике решения #4 (иначе был бы краш UNIQUE constraint), а
      * отредактированную строку удаляем.
+     *
+     * `item.photoFile` – ЖЕЛАЕМОЕ итоговое фото (то, что пользователь видел на экране
+     * правки; null = убрал). Возвращает осиротевшие фото-файлы – удаляет вызывающий.
      */
-    suspend fun update(item: Item, now: Long) {
+    suspend fun update(item: Item, now: Long): List<String> {
         val nameNorm = TextNormalizer.normalize(item.name)
+        val orphans = mutableListOf<String>()
         db.withTransaction {
+            val current = itemDao.findById(item.id)
+            if (current?.photoFile != null && current.photoFile != item.photoFile) {
+                orphans += current.photoFile
+            }
             val collision = itemDao.findByNameNorm(nameNorm)
             if (collision != null && collision.id != item.id) {
                 if (collision.location.isNotBlank() && collision.location != item.location) {
@@ -96,14 +116,23 @@ class RecordRepository(private val db: RemindyDatabase) {
                         ),
                     )
                 }
+                if (collision.photoFile != null && collision.photoFile != item.photoFile) {
+                    orphans += collision.photoFile
+                }
                 itemDao.update(
-                    collision.copy(name = item.name, location = item.location, updatedAt = now),
+                    collision.copy(
+                        name = item.name,
+                        location = item.location,
+                        updatedAt = now,
+                        photoFile = item.photoFile,
+                    ),
                 )
                 itemDao.delete(item)
             } else {
                 itemDao.update(item.copy(nameNorm = nameNorm, updatedAt = now))
             }
         }
+        return orphans
     }
 
     suspend fun delete(item: Item) = itemDao.delete(item)

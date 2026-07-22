@@ -35,8 +35,9 @@ android {
         applicationId = "com.marlendd.remindy"
         minSdk = 26
         targetSdk = 36
-        versionCode = 1
-        versionName = "1.0.0" // первый релиз
+        // versionCode ПОДНИМАТЬ при каждой раздаче APK: установка поверх без него не пройдёт
+        versionCode = 2
+        versionName = "1.1.0" // фото места (миграция БД 1→2)
         // Релиз идёт APK-ом вручную на arm64-телефон; режет нативные либы в APK под одну ABI
         ndk { abiFilters += "arm64-v8a" }
     }

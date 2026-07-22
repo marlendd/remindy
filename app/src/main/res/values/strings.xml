@@ -71,6 +71,12 @@
     <string name="confirm_delete_title">Удалить запись?</string>
     <string name="confirm_delete_message">«%1$s» будет удалено без возможности отмены.</string>
     <string name="toast_item_missing">Эта запись уже удалена</string>
+    <!-- Фото места -->
+    <string name="btn_photo_add">Сфотографировать место</string>
+    <string name="btn_photo_retake">Переснять</string>
+    <string name="btn_photo_remove">Убрать фото</string>
+    <string name="photo_no_camera">Камера недоступна на этом телефоне</string>
+    <string name="cd_place_photo">Фото места</string>
     <!-- Экран настроек (ТЗ F4) -->
     <string name="btn_settings">Настройки</string>
     <string name="title_settings">Настройки</string>

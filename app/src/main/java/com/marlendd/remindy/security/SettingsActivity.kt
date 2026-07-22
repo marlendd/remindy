@@ -60,6 +60,7 @@ import com.marlendd.remindy.data.BackupFormatException
 import com.marlendd.remindy.data.BackupRecord
 import com.marlendd.remindy.data.RecordRepository
 import com.marlendd.remindy.data.RemindyDatabase
+import com.marlendd.remindy.photo.PhotoStore
 import com.marlendd.remindy.ui.UiScale
 import com.marlendd.remindy.ui.theme.RemindyTheme
 import kotlinx.coroutines.CancellationException
@@ -636,7 +637,12 @@ class SettingsActivity : AppCompatActivity() {
         busy = true
         lifecycleScope.launch {
             try {
-                val inserted = withContext(Dispatchers.IO) { repo.replaceAllRecords(records) }
+                val inserted = withContext(Dispatchers.IO) {
+                    val n = repo.replaceAllRecords(records)
+                    // Фото в бэкап не входят: после полной замены записей все файлы осиротели
+                    PhotoStore.deleteAll(this@SettingsActivity)
+                    n
+                }
                 Toast.makeText(
                     this@SettingsActivity,
                     getString(R.string.backup_import_ok, inserted),
