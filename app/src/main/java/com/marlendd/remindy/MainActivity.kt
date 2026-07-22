@@ -11,6 +11,7 @@ import androidx.activity.enableEdgeToEdge
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AppCompatActivity
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -37,6 +38,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
@@ -197,18 +199,21 @@ class MainActivity : AppCompatActivity(), RecognitionListener {
                             textAlign = TextAlign.Center,
                         )
                     } else {
-                        // Покой – иконка микрофона и мягкая подсказка вместо статусной строки
+                        // Покой – большой микрофон по центру. Он ВЫГЛЯДИТ кнопкой, поэтому он
+                        // и ЕСТЬ кнопка: тап начинает запись, как «Сказать» внизу (дубль намеренный)
                         Column(horizontalAlignment = Alignment.CenterHorizontally) {
                             Box(
                                 Modifier
                                     .size(96.dp)
                                     .clip(CircleShape)
-                                    .background(MaterialTheme.colorScheme.primaryContainer),
+                                    .background(MaterialTheme.colorScheme.primaryContainer)
+                                    .clickable(enabled = speakEnabled) { toggleRecognition() }
+                                    .alpha(if (speakEnabled) 1f else 0.5f),
                                 contentAlignment = Alignment.Center,
                             ) {
                                 Icon(
                                     painterResource(R.drawable.ic_mic),
-                                    contentDescription = null,
+                                    contentDescription = stringResource(R.string.btn_speak),
                                     tint = MaterialTheme.colorScheme.onPrimaryContainer,
                                     modifier = Modifier.size(44.dp),
                                 )
