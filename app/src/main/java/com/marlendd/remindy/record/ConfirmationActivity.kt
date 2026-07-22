@@ -77,6 +77,7 @@ class ConfirmationActivity : AppCompatActivity() {
 
     private var repository: RecordRepository? = null
     private var editingId: Long = NO_ID
+    private var manualNew = false // открыт кнопкой «впишите вручную», а не голосом
 
     private var itemText by mutableStateOf("")
     private var locationText by mutableStateOf("")
@@ -121,6 +122,9 @@ class ConfirmationActivity : AppCompatActivity() {
 
         editingId = intent.getLongExtra(EXTRA_ITEM_ID, NO_ID)
         if (editingId == NO_ID) {
+            // Открыли без голоса (кнопка «или впишите вручную»): экстры отсутствуют вовсе.
+            // Голосовой флоу кладёт их всегда, даже пустыми.
+            manualNew = !intent.hasExtra(EXTRA_ITEM)
             itemText = intent.getStringExtra(EXTRA_ITEM).orEmpty()
             locationText = intent.getStringExtra(EXTRA_LOCATION).orEmpty()
         }
@@ -198,7 +202,13 @@ class ConfirmationActivity : AppCompatActivity() {
                 .padding(16.dp),
         ) {
             Text(
-                stringResource(if (editing) R.string.title_edit else R.string.title_confirm),
+                stringResource(
+                    when {
+                        editing -> R.string.title_edit
+                        manualNew -> R.string.title_new
+                        else -> R.string.title_confirm
+                    },
+                ),
                 fontSize = 26.sp,
                 fontWeight = FontWeight.Bold,
                 modifier = Modifier.padding(bottom = 20.dp),
@@ -264,7 +274,11 @@ class ConfirmationActivity : AppCompatActivity() {
                 onClick = { finish() },
                 modifier = Modifier.fillMaxWidth().heightIn(min = 56.dp),
             ) {
-                Text(stringResource(if (editing) R.string.btn_cancel else R.string.btn_rewrite), fontSize = 20.sp)
+                // «Переписать» имеет смысл только после голоса; при правке и ручном вводе – «Отмена»
+                Text(
+                    stringResource(if (editing || manualNew) R.string.btn_cancel else R.string.btn_rewrite),
+                    fontSize = 20.sp,
+                )
             }
             if (editing) {
                 Spacer(Modifier.size(12.dp))

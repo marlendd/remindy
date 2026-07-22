@@ -20,6 +20,8 @@
     <string name="label_item">Что</string>
     <string name="label_location">Где лежит (если есть)</string>
     <string name="title_confirm">Проверьте запись</string>
+    <string name="title_new">Новая запись</string>
+    <string name="btn_write_manual">или впишите вручную</string>
     <string name="title_list">Мои записи</string>
     <string name="list_empty">Пока нет записей. Нажмите «Сказать» и наговорите первую.</string>
     <string name="toast_saved">Сохранено</string>

@@ -220,6 +220,19 @@ class MainActivity : AppCompatActivity(), RecognitionListener {
                                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                                 textAlign = TextAlign.Center,
                             )
+                            // Тихий вход для записи без голоса (транспорт, поздний вечер):
+                            // тот же экран записи, только пустой – никакого нового флоу
+                            Spacer(Modifier.size(4.dp))
+                            TextButton(onClick = {
+                                startActivity(Intent(this@MainActivity, ConfirmationActivity::class.java))
+                            }) {
+                                IconLabel(
+                                    R.drawable.ic_edit,
+                                    stringResource(R.string.btn_write_manual),
+                                    16.sp,
+                                    iconSize = 18.dp,
+                                )
+                            }
                         }
                     }
                 }
