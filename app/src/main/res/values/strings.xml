@@ -4,7 +4,7 @@
     <string name="btn_speak">Сказать</string>
     <string name="btn_stop">Стоп</string>
     <string name="status_loading_model">Загрузка модели…</string>
-    <string name="main_hint">Скажите, что и где вы положили</string>
+    <string name="main_hint">Скажите, что и где вы положили.\nИли просто что важно запомнить.</string>
     <string name="status_listening">Слушаю…</string>
     <string name="status_model_error">Ошибка загрузки модели: %1$s</string>
     <string name="status_error">Ошибка: %1$s</string>
@@ -15,16 +15,16 @@
     <string name="btn_save">Сохранить</string>
     <string name="btn_rewrite">Переписать</string>
     <string name="btn_cancel">Отмена</string>
-    <string name="hint_item">Предмет</string>
-    <string name="hint_location">Место</string>
+    <string name="hint_item">Что записать</string>
+    <string name="hint_location">Можно оставить пустым</string>
     <string name="label_item">Что</string>
-    <string name="label_location">Где лежит</string>
+    <string name="label_location">Где лежит (если есть)</string>
     <string name="title_confirm">Проверьте запись</string>
     <string name="title_list">Мои записи</string>
     <string name="list_empty">Пока нет записей. Нажмите «Сказать» и наговорите первую.</string>
     <string name="toast_saved">Сохранено</string>
     <string name="toast_deleted">Удалено</string>
-    <string name="toast_item_required">Впишите, что за предмет</string>
+    <string name="toast_item_required">Впишите, что записать</string>
     <string name="toast_save_error">Не удалось сохранить. Попробуйте изменить название.</string>
 
     <!-- Поиск (этап 3) -->
@@ -116,7 +116,7 @@
     <string name="backup_import_err">Не удалось восстановить</string>
     <!-- Онбординг (подсказка при первом запуске + «Как пользоваться» в настройках) -->
     <string name="onboarding_intro">Запоминайте голосом, куда кладёте вещи – и находите их потом.</string>
-    <string name="onboarding_step_speak">Нажмите «Сказать» и назовите вещь и место. Например: «очки на столе».</string>
+    <string name="onboarding_step_speak">Нажмите «Сказать» и назовите вещь и место: «очки на столе». Или просто важное: «код от подъезда 4271».</string>
     <string name="onboarding_step_find">Нажмите «Найти» и спросите: «где очки».</string>
     <string name="onboarding_step_list">«Список» покажет всё, что вы записали.</string>
     <string name="onboarding_offline">Всё хранится только на телефоне, без интернета.</string>

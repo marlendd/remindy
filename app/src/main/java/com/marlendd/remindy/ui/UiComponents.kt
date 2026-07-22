@@ -76,7 +76,11 @@ fun RecordRow(
         ) {
             Column(Modifier.weight(1f)) {
                 Text(item.name, fontSize = 24.sp, fontWeight = FontWeight.Bold)
-                Text(item.location, fontSize = 20.sp, modifier = Modifier.padding(top = 2.dp))
+                // Запись-факт (место не указано): строки места НЕТ вовсе – карточка
+                // компактнее, и по силуэту видно, что это «просто запомнить», а не вещь
+                if (item.location.isNotBlank()) {
+                    Text(item.location, fontSize = 20.sp, modifier = Modifier.padding(top = 2.dp))
+                }
                 val dateText = remember(item.updatedAt) { formatRuDate(item.updatedAt) }
                 Text(
                     stringResource(R.string.row_updated, dateText),
