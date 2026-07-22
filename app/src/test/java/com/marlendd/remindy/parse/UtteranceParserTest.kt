@@ -178,4 +178,32 @@ class UtteranceParserTest {
         assertEquals("положу", r.item)
         assertEquals("в комод", r.location)
     }
+
+    // --- Глагол В НАЧАЛЕ фразы («положил паспорт в комод») ----------------------
+
+    @Test fun stripsLeadingActionVerb() {
+        // Репортнутый случай: глагол первым словом
+        val r = parse("положил паспорт в комод")
+        assertEquals("паспорт", r.item)
+        assertEquals("в комод", r.location)
+    }
+
+    @Test fun stripsLeadingVerbUbral() {
+        val r = parse("убрал очки в стол")
+        assertEquals("очки", r.item)
+        assertEquals("в стол", r.location)
+    }
+
+    @Test fun stripsLeadingVerbWithoutPreposition() {
+        // без места: «убрала зарядку» → предмет «зарядку», факт
+        val r = parse("убрала зарядку")
+        assertEquals("зарядку", r.item)
+        assertEquals("", r.location)
+    }
+
+    @Test fun stripsLeadingVerbMultiWordItem() {
+        val r = parse("повесил запасные ключи на крючок")
+        assertEquals("запасные ключи", r.item)
+        assertEquals("на крючок", r.location)
+    }
 }

@@ -69,10 +69,10 @@ object UtteranceParser {
         val prepositionIndex = tokens.indexOfFirst { norm(it) in PREPOSITIONS }
         // -1 (предлога нет) или 0 (предлог первый → предмет пуст) → вся фраза в предмет
         if (prepositionIndex <= 0) {
-            return ParsedRecord(stripTrailingVerbs(tokens), "")
+            return ParsedRecord(stripPlacementVerbs(tokens), "")
         }
 
-        val item = stripTrailingVerbs(tokens.subList(0, prepositionIndex))
+        val item = stripPlacementVerbs(tokens.subList(0, prepositionIndex))
         // место = предлог и всё после него; если после предлога пусто – места нет
         val location = if (prepositionIndex < tokens.lastIndex) {
             tokens.subList(prepositionIndex, tokens.size).joinToString(" ")
@@ -82,14 +82,15 @@ object UtteranceParser {
         return ParsedRecord(item, location)
     }
 
-    // Отбрасывает хвостовые глаголы места, но никогда не опустошает предмет
-    // (если глагол – единственное слово, оставляем его как есть – данные не теряем).
-    private fun stripTrailingVerbs(tokens: List<String>): String {
+    // Отбрасывает глаголы места с ОБОИХ концов предмета: русский порядок слов допускает
+    // и «паспорт ПОЛОЖИЛ в комод» (хвост), и «ПОЛОЖИЛ паспорт в комод» (начало).
+    // Никогда не опустошает предмет (глагол – единственное слово → оставляем как есть).
+    private fun stripPlacementVerbs(tokens: List<String>): String {
+        var start = 0
         var end = tokens.size
-        while (end > 1 && norm(tokens[end - 1]) in PLACEMENT_VERBS) {
-            end--
-        }
-        return tokens.subList(0, end).joinToString(" ")
+        while (end - start > 1 && norm(tokens[end - 1]) in PLACEMENT_VERBS) end--
+        while (end - start > 1 && norm(tokens[start]) in PLACEMENT_VERBS) start++
+        return tokens.subList(start, end).joinToString(" ")
     }
 
     // Нижний регистр + ё→е: Vosk и ручной ввод дают то «кладём», то «кладем» –
