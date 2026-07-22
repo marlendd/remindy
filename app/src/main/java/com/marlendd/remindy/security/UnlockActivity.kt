@@ -79,6 +79,13 @@ class UnlockActivity : AppCompatActivity() {
     private var showBiometric by mutableStateOf(false)
     private var keypadEnabled by mutableStateOf(true)
 
+    // Отпечаток – вход по умолчанию: системный диалог всплывает сам при КАЖДОМ показе
+    // экрана (onCreate и повторные onResume), код – запасной путь. stateReady защищает
+    // от первого onResume до того, как корутина onCreate определила режим; promptVisible –
+    // от двойного показа. Отказ/отмена диалога НЕ перепоказывают его до ухода с экрана.
+    private var stateReady = false
+    private var promptVisible = false
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
@@ -105,12 +112,21 @@ class UnlockActivity : AppCompatActivity() {
                 // Активный лок показываем сразу, а не после набора кода впустую
                 if (lockedMs > 0) startLockCountdown(lockedMs)
                 // Биометрия – независимый фактор, лок кода её не блокирует
-                if (biometricEnabledAndAvailable()) {
-                    showBiometric = true
-                    showBiometricPrompt()
-                }
+                if (biometricEnabledAndAvailable()) showBiometric = true
             }
+            stateReady = true
+            autoPromptBiometric()
         }
+    }
+
+    override fun onResume() {
+        super.onResume()
+        // Вернулись на экран (свернули/переключились) – снова предлагаем отпечаток
+        autoPromptBiometric()
+    }
+
+    private fun autoPromptBiometric() {
+        if (stateReady && !setupMode && showBiometric && !promptVisible) showBiometricPrompt()
     }
 
     // --- UI -------------------------------------------------------------------
@@ -360,15 +376,20 @@ class UnlockActivity : AppCompatActivity() {
 
     private fun showBiometricPrompt() {
         if (!biometricEnabledAndAvailable()) return
+        promptVisible = true
         val prompt = BiometricPrompt(
             this,
             ContextCompat.getMainExecutor(this),
             object : BiometricPrompt.AuthenticationCallback() {
                 override fun onAuthenticationSucceeded(result: BiometricPrompt.AuthenticationResult) {
+                    promptVisible = false
                     grant()
                 }
                 // Ошибка/отмена/«Ввести код» → остаёмся на клавиатуре кода, не пускаем и не выходим
-                override fun onAuthenticationError(errorCode: Int, errString: CharSequence) = Unit
+                override fun onAuthenticationError(errorCode: Int, errString: CharSequence) {
+                    promptVisible = false
+                }
+                // Неудачная попытка пальца: диалог остаётся открытым – флаг не сбрасываем
                 override fun onAuthenticationFailed() = Unit
             },
         )

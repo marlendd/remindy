@@ -12,6 +12,7 @@ import androidx.appcompat.app.AppCompatActivity
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
@@ -26,7 +27,7 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material3.Button
-import androidx.compose.material3.FilledTonalButton
+import androidx.compose.material3.FilledIconButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
@@ -35,6 +36,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
@@ -175,42 +177,45 @@ class SearchActivity : AppCompatActivity(), RecognitionListener {
                 fontWeight = FontWeight.Bold,
                 modifier = Modifier.padding(bottom = 12.dp),
             )
-            OutlinedTextField(
-                value = query,
-                onValueChange = { query = it },
-                singleLine = true,
-                leadingIcon = {
-                    Icon(painterResource(R.drawable.ic_search), contentDescription = null)
-                },
-                placeholder = { Text(stringResource(R.string.search_hint)) },
-                keyboardOptions = KeyboardOptions(
-                    autoCorrectEnabled = false,
-                    imeAction = ImeAction.Search,
-                ),
-                keyboardActions = KeyboardActions(onSearch = { runSearch(query) }),
-                textStyle = TextStyle(fontSize = 22.sp),
-                modifier = Modifier.fillMaxWidth(),
-            )
-            Spacer(Modifier.size(10.dp))
-            // Поиск по НАБРАННОМУ тексту (основная кнопка, лупа). Раньше искать текст можно было
-            // только скрытой клавишей «поиск» на клавиатуре – для пожилого это не очевидно.
-            Button(
-                onClick = { runSearch(query) },
-                modifier = Modifier.fillMaxWidth().heightIn(min = 72.dp),
-            ) {
-                IconLabel(R.drawable.ic_search, stringResource(R.string.btn_find), 24.sp)
+            // Поле ввода + компактная лупа-кнопка справа: ищет по набранному тексту.
+            // Лупа в терракоте читается как «выполнить поиск», но не спорит с «Сказать».
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                OutlinedTextField(
+                    value = query,
+                    onValueChange = { query = it },
+                    singleLine = true,
+                    placeholder = { Text(stringResource(R.string.search_hint)) },
+                    keyboardOptions = KeyboardOptions(
+                        autoCorrectEnabled = false,
+                        imeAction = ImeAction.Search,
+                    ),
+                    keyboardActions = KeyboardActions(onSearch = { runSearch(query) }),
+                    textStyle = TextStyle(fontSize = 22.sp),
+                    modifier = Modifier.weight(1f),
+                )
+                Spacer(Modifier.size(10.dp))
+                FilledIconButton(
+                    onClick = { runSearch(query) },
+                    modifier = Modifier.size(56.dp),
+                ) {
+                    Icon(
+                        painterResource(R.drawable.ic_search),
+                        contentDescription = stringResource(R.string.btn_find),
+                        modifier = Modifier.size(26.dp),
+                    )
+                }
             }
-            Spacer(Modifier.size(10.dp))
-            // Поиск ГОЛОСОМ (тональная кнопка, микрофон) – отделена от текстовой, чтобы не путать
-            FilledTonalButton(
+            Spacer(Modifier.size(12.dp))
+            // Голос – главная кнопка экрана (для пожилого основной способ)
+            Button(
                 onClick = { toggleVoice() },
                 enabled = voiceEnabled,
-                modifier = Modifier.fillMaxWidth().heightIn(min = 64.dp),
+                modifier = Modifier.fillMaxWidth().heightIn(min = 72.dp),
             ) {
                 IconLabel(
                     R.drawable.ic_mic,
                     stringResource(if (capturing) R.string.btn_stop else R.string.btn_speak),
-                    22.sp,
+                    24.sp,
                 )
             }
             Spacer(Modifier.size(12.dp))
